@@ -19,10 +19,10 @@
 /* ---------------------------------------------------
 BASIC PARAMETERS
 ------------------------------------------------------ */
-$mysql_server="localhost";	# Use 'localhost' if MySQL is installed on the same server as your web server.
-$mysql_username="rsuser";		# MySQL username
-$mysql_password="52fKbDrSG2UHSmN9";			# MySQL password
-$mysql_db="resourcespace";			# MySQL database name
+# $mysql_server="localhost";	# Use 'localhost' if MySQL is installed on the same server as your web server.
+# $mysql_username="rsuser";		# MySQL username
+# $mysql_password="52fKbDrSG2UHSmN9";			# MySQL password
+# $mysql_db="resourcespace";			# MySQL database name
 # $mysql_charset="utf8"; # MySQL database connection charset, uncomment to use.
 
 # The path to the MySQL client binaries - e.g. mysqldump
