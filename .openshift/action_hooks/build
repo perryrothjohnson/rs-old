@@ -8,10 +8,10 @@ mkdir bin
 # install ffmpeg
 wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
 tar -xvf ffmpeg-release-64bit-static.tar.xz
-cd ffmpeg-release-64bit-static
+cd ffmpeg-2.8.1-64bit-static
 ./ffmpeg --prefix=$OPENSHIFT_DATA_DIR/bin --bindir=$OPENSHIFT_DATA_DIR/bin
-cd ..
 # install exiftool
+cd $OPENSHIFT_DATA_DIR
 wget http://www.sno.phy.queensu.ca/~phil/exiftool/Image-ExifTool-10.05.tar.gz
 tar -xvf Image-ExifTool-10.05.tar.gz
 cd Image-ExifTool-10.05
