@@ -1,0 +1,5 @@
+# Ignore paths that contain user-generated content.
+filestore
+
+# Ignore dev environment files
+.DS_Store
