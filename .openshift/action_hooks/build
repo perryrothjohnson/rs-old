@@ -5,15 +5,29 @@
 # could be python, php, ruby, etc.
 cd $OPENSHIFT_DATA_DIR
 mkdir bin
-# install ffmpeg
-wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
-tar -xvf ffmpeg-release-64bit-static.tar.xz
-cd ffmpeg-2.8.1-64bit-static
-cp ffmpeg $OPENSHIFT_DATA_DIR/bin
-# install exiftool
-cd $OPENSHIFT_DATA_DIR
-wget http://www.sno.phy.queensu.ca/~phil/exiftool/Image-ExifTool-10.05.tar.gz
-tar -xvf Image-ExifTool-10.05.tar.gz
-cd Image-ExifTool-10.05
-cp exiftool $OPENSHIFT_DATA_DIR/bin
-cp -R lib $OPENSHIFT_DATA_DIR/bin
+# check if ffmpeg doesn't exist
+if [ ! -f ./bin/ffmpeg ]
+then
+    # install ffmpeg
+    wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
+    tar -xvf ffmpeg-release-64bit-static.tar.xz
+    cd ffmpeg-2.8.1-64bit-static
+    cp ffmpeg $OPENSHIFT_DATA_DIR/bin
+else
+    # skip ahead, ffmpeg is already installed
+    echo "ffmpeg already installed ... skipping download and install"
+fi
+# check if exiftool doesn't exist
+if [ ! -f ./bin/exiftool ]
+then
+    # install exiftool
+    cd $OPENSHIFT_DATA_DIR
+    wget http://www.sno.phy.queensu.ca/~phil/exiftool/Image-ExifTool-10.05.tar.gz
+    tar -xvf Image-ExifTool-10.05.tar.gz
+    cd Image-ExifTool-10.05
+    cp exiftool $OPENSHIFT_DATA_DIR/bin
+    cp -R lib $OPENSHIFT_DATA_DIR/bin
+else
+    # skip ahead, exiftool is already installed
+    echo "exiftool already installed ... skipping download and install"
+fi
