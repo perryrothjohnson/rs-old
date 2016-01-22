@@ -17,12 +17,12 @@ git add ...
 # check for unincorporated changes on bitbucket remote repo
 git pull origin dev
 # check for unincorporated changes on openshift remote repo
-git pull openshiftdev master
+git pull openshiftdev dev
 # commit the staged files
 git commit -m "[message]"
 # push the new commit to remote repos on bitbucket and openshift
 git push origin dev
-git push openshiftdev master
+git push openshiftdev dev
 ```
 
 ## ResourceSpace
