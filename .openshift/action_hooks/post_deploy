@@ -1,4 +1,20 @@
 #!/bin/bash
 # This script is executed after the app is rebuilt and deployed
+# copy config.php back into the app
 cp $OPENSHIFT_DATA_DIR/config.php $OPENSHIFT_REPO_DIR/include
-echo "config.php was safely restored to OPENSHIFT_REPO_DIR/include"
+# check if config.php was restored properly
+if [ -e $OPENSHIFT_REPO_DIR/include/config.php ]
+then
+    echo "config.php restored"
+else
+    echo "*** ERROR: config.php failed to restore! ***"
+fi
+# copy filestore back into the app
+cp -R $OPENSHIFT_DATA_DIR/filestore $OPENSHIFT_REPO_DIR
+# check if filestore was restored properly
+if [ -e $OPENSHIFT_REPO_DIR/filestore ]
+then
+    echo "filestore folder restored"
+else
+    echo "*** ERROR: filestore folder failed to restore! ***"
+fi

@@ -1,5 +1,20 @@
 #!/bin/bash
 # This script is executed before the app is rebuilt
-cd $OPENSHIFT_REPO_DIR/include
-cp config.php $OPENSHIFT_DATA_DIR
-echo "config.php copied to OPENSHIFT_DATA_DIR"
+# save existing config.php so it doesn't get overwritten
+cp $OPENSHIFT_REPO_DIR/include/config.php $OPENSHIFT_DATA_DIR
+# check if config.php was saved properly
+if [ -e $OPENSHIFT_DATA_DIR/config.php ]
+then
+    echo "config.php saved"
+else
+    echo "*** ERROR: config.php failed to save! ***"
+fi
+# save existing filestore folder so it doesn't get overwritten
+cp -R $OPENSHIFT_REPO_DIR/filestore $OPENSHIFT_DATA_DIR
+# check if filestore was saved properly
+if [ -e $OPENSHIFT_DATA_DIR/filestore ]
+then
+    echo "filestore folder saved"
+else
+    echo "*** ERROR: filestore folder failed to save! ***"
+fi

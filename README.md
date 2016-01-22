@@ -11,3 +11,32 @@ ResourceSpace 7.4.7249 on OpenShift
 ## OpenShift
 * Create a free [Red Hat Openshift account](https://openshift.redhat.com)
 * [Getting started with OpenShift](https://openshift.redhat.com/app/getting_started)
+
+## OpenShift file system
+<pre><code>.
+|-- .env
+|-- app-root
+|   |-- data  ($OPENSHIFT_DATA_DIR)
+|   |-- repo -> runtime/repo
+|   `-- runtime
+|       |-- data
+|       `-- repo  ($OPENSHIFT_REPO_DIR)
+|           |-- ...deployed application code
+|           `-- include
+|               |-- config.php
+|--  app-deployments
+|   |-- current
+|   |   |-- build-dependencies
+|   |   |-- dependencies
+|   |   |-- metadata.json
+|   |   `-- repo
+|   `-- ...application deployments
+|--  git
+|   `-- [APP_NAME].git
+|       `-- hooks
+|       |   |--  post-receive
+|       |   |--  pre-receive
+|       |   `-- ... sample hooks
+|       `-- ... other git directories
+`-- ...cartridge directories
+</code></pre>
