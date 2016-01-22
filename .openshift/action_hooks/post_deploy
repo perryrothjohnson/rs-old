@@ -1,0 +1,4 @@
+#!/bin/bash
+# This script is executed after the app is rebuilt and deployed
+cp $OPENSHIFT_DATA_DIR/config.php $OPENSHIFT_REPO_DIR/include
+echo "config.php was safely restored to OPENSHIFT_REPO_DIR/include"

@@ -3,3 +3,4 @@ filestore
 
 # Ignore dev environment files
 .DS_Store
+.openshift/.DS_Store

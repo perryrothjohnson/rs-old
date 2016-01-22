@@ -1,0 +1,5 @@
+#!/bin/bash
+# This script is executed before the app is rebuilt
+cd $OPENSHIFT_REPO_DIR/include
+cp config.php $OPENSHIFT_DATA_DIR
+echo "config.php copied to OPENSHIFT_DATA_DIR"
