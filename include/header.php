@@ -217,7 +217,7 @@ if ($contact_sheet)
 var baseurl_short="<?php echo $baseurl_short?>";
 var baseurl="<?php echo $baseurl?>";
 var pagename="<?php echo $pagename?>";
-var errorpageload = "<h1><?php echo $lang["error"] ?></h1><p><?php echo $lang["error-pageload"] ?></p>" ;
+var errorpageload = "<h1><?php echo $lang["error"] ?></h1><p><?php echo str_replace(array("\r","\n"),'',nl2br($lang["error-pageload"])) ?></p>";
 var applicationname = "<?php echo $applicationname?>";
 var branch_limit="<?php echo $cat_tree_singlebranch?>";
 var global_cookies = "<?php echo $global_cookies?>";
@@ -324,6 +324,25 @@ if($slimheader)
         if($linkedheaderimgsrc !="") 
             {
             $header_img_src = $linkedheaderimgsrc;
+            if(substr($header_img_src, 0, 4) !== 'http')
+                {
+                // Set via System Config page?
+                if (substr($header_img_src, 0, 13) == '[storage_url]')
+                    {
+                    // Parse and replace the storage URL
+                    $header_img_src = str_replace('[storage_url]', $storageurl, $header_img_src);
+                    }
+                else
+                    {
+                    // Set via config.php
+                    // if image source already has the baseurl short, then remove it and add it here
+                    if(substr($header_img_src, 0, 1) === '/')
+                        {
+                        $header_img_src = substr($header_img_src, 1);
+                        }
+                    $header_img_src = $baseurl_short . $header_img_src;
+                    }
+                }
             }
         else 
             {
@@ -397,8 +416,8 @@ else
 	?>
 	<ul>
 	<?php if (!hook("replaceheaderfullnamelink")){?>
-	<li><?php if ($allow_password_change && !checkperm("p") && (!isset($password_reset_mode) || !$password_reset_mode)) { ?>
-	<a href="<?php echo $baseurl?>/pages/user/user_home.php"  onClick="return CentralSpaceLoad(this,true);"><?php } ?><?php echo htmlspecialchars(($userfullname=="" ? $username : $userfullname)) ?><?php } /* end replacefullnamelink */?><?php if ($allow_password_change && !checkperm("p")) { ?></a>
+	<li>
+	<a href="<?php echo $baseurl?>/pages/user/user_home.php"  onClick="ModalClose();return ModalLoad(this,true,true,'right');"><?php echo htmlspecialchars(($userfullname=="" ? $username : $userfullname)) ?></a>
 		<span style="display: none;" class="MessageCountPill"></span>
 		<div id="MessageContainer" style="position:absolute; "></div>
 	<?php } ?></li>
@@ -473,6 +492,20 @@ hook("afterheader");
 
 } // end if !ajax
 
+// Update header links to add a class that indicates current location
+$parsed_url = parse_url($baseurl);
+
+$scheme = @$parsed_url['scheme'];
+$host = @$parsed_url['host'];
+$port = @$parsed_url['port'];
+?>
+<script>
+jQuery(document).ready(function()
+		{
+		ActivateHeaderLink('<?php echo $scheme . "://" . $host . (isset($port)?":" . $port:"") . $_SERVER["REQUEST_URI"] ?>');
+		});
+</script>
+<?php
 // Non-ajax specific hook 
 hook("start_centralspace");
 

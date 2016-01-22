@@ -86,6 +86,7 @@ $lang["fieldtype-category_tree"]="Category tree";
 $lang["fieldtype-dynamic_keywords_list"]="Dynamic keywords list";
 $lang["fieldtype-dynamic_tree_in_development"]="Dynamic tree (in development)";
 $lang["fieldtype-radio_buttons"]="Radio buttons";
+$lang["fieldtype-warning_message"]="Warning message";
 
 # Property labels (for the default properties)
 $lang["documentation-permissions"]="See <a href=../../documentation/permissions.txt target=_blank>the permissions help text file</a> for further information on permissions.";
@@ -116,6 +117,7 @@ $lang["property-resource_type"]="Resource type";
 $lang["property-field_type"]="Field type";
 
 $lang["property-options"]="Comma separated list of options. The first option will be the default option. If you do not wish to set a default value, use a starting comma to default to blank. E.g. <br />,Option1,Option2 - will default to blank.";
+$lang['property-options_edit_link'] = 'Manage options';
 $lang["property-required"]="Required";
 $lang["property-order_by"]="Order by";
 $lang["property-indexing"]="<b>Indexing</b>";
@@ -175,6 +177,15 @@ $lang["property-total_collections"]="Total collections";
 $lang["property-collection_resource_relationships"]="Collection resource relationships";
 $lang["property-total_users"]="Total users";
 
+# Used for activity log
+$lang["property-resource-field"]="Resource field";
+$lang["property-old_value"]="Old value";
+$lang["property-new_value"]="New value";
+$lang["property-table"]="Table";
+$lang["property-column"]="Column";
+$lang["property-table_reference"]="Table reference";
+$lang["property-code"]="Code";
+$lang["property-operation"]="Operation";
 
 # Top navigation bar (also reused for page titles)
 $lang["logout"]="Log out";
@@ -223,6 +234,7 @@ $lang["reload"]="Reload";
 $lang["pause"]="Pause";
 $lang["filterbutton"]="Filter";
 $lang["stopbutton"]="Stop";
+$lang["loadmorebutton"]="Load more";
 
 $lang["gotoadvancedsearch"]="Advanced search";
 $lang["viewnewmaterial"]="View new material";
@@ -242,6 +254,7 @@ $lang["viewreport"]="View report";
 $lang["treeobjecttype-report"]=$lang["report"]="Report";
 $lang["sendbulkmail"]="Send bulk mail";
 $lang["systemsetup"]="System";
+$lang["systemlog"]="System log";
 $lang["usersonline"]="Users currently online (idle time minutes)";
 $lang["diskusage"]="Disk usage";
 $lang["available"]="available";
@@ -359,6 +372,9 @@ $lang["addtocollection"]="Add to collection";
 $lang["cantmodifycollection"]="You can't modify this collection.";
 $lang["currentcollection"]="Current collection";
 $lang["viewcollection"]="View collection";
+$lang['hiddencollections_hide']="Hide hidden collections";
+$lang['hiddencollections_show']="Show hidden collections";
+$lang['hide_collection']="Hide collection";
 $lang["viewall"]="View all";
 $lang['view_all_resources'] = 'View all resources';
 $lang["action-editall"]="Edit all";
@@ -400,6 +416,7 @@ $lang["forthispackage"]="for this package";
 $lang["didnotinclude"]="Did not include";
 $lang["selectcollection"]="Select collection";
 $lang["total"]="Total";
+$lang["lastmatching"]="Last matching";
 $lang["ownedbyyou"]="owned by you";
 $lang["edit_theme_category"]="Edit featured collection category";
 $lang["emailthemecollectionmessageexternal"]="has e-mailed you collections of resources from $applicationname."; 
@@ -552,6 +569,27 @@ $lang["log-r"]="Reverted metadata";
 $lang["log-b"]="Created alternate";
 $lang["log-missinglang"]="[type] (missing lang)"; # [type] will be replaced.
 $lang['log-adminpermissionsrequired'] = 'Full admin permission required!';
+
+/* Universal log codes (generic - not for example, resource specific) */
+$lang["log_code_a"]="Access changed";
+$lang["log_code_b"]=$lang["log-b"];
+$lang["log_code_c"]="Created";
+$lang["log_code_C"]="Copied";
+$lang["log_code_d"]=$lang["log-d"];
+$lang["log_code_e"]="Edited";
+$lang["log_code_E"]="Emailed";
+$lang["log_code_l"]=$lang["log-l"];
+$lang["log_code_m"]="Multi-edited";
+$lang["log_code_p"]="Payed";
+$lang["log_code_r"]="Reverted or re-uploaded";
+$lang["log_code_R"]="Reordered";
+$lang["log_code_s"]=$lang["log-s"];
+$lang["log_code_S"]="System";
+$lang["log_code_t"]=$lang["log-t"];
+$lang["log_code_u"]=$lang["log-u"];
+$lang["log_code_U"]="Unspecified";
+$lang["log_code_v"]="Viewed";
+$lang["log_code_x"]="Deleted";
 
 $lang["backtoresourceview"]="Back to resource view";
 $lang["continuetoresourceview"]="Continue to resource view";
@@ -721,7 +759,9 @@ $lang["backtoeditresource"]="Back to edit resource";
 $lang["backtouser"]="Back to user login";
 $lang["continuetouser"]="Continue to user login";
 $lang["termsandconditions"]="Terms and conditions";
-$lang["iaccept"]="I Accept";
+$lang["iaccept"]="I accept the terms";
+$lang["mustaccept"]="You must tick the box to accept the terms before you can proceed";
+$lang["proceed"]="Proceed";
 $lang["contributedby"]="Contributed by";
 $lang["format"]="Format";
 $lang["notavailableshort"]="N/A";
@@ -750,6 +790,7 @@ $lang["resource-2"]="resources";
 $lang["status-note"]="NOTE";
 $lang["action-changelanguage"]="Change language";
 $lang["loading"]="Loading...";
+$lang['disable_languages']='Disable language selection options';
 
 # Pager
 $lang["next"]="Next";
@@ -872,6 +913,8 @@ $lang["requestnewpassword"]="Request new password";
 
 # New for 1.4
 $lang["reorderresources"]="Reorder resources within collection (hold and drag)";
+$lang['resourcetypereordered']="Resource type position reordered";
+$lang['resourcetypefieldreordered']="Resource type field position reordered";
 $lang["addorviewcomments"]="Add or view comments";
 $lang["collectioncomments"]="Collection comments";
 $lang["collectioncommentsinfo"]="Add a comment to this collection for this resource. This will only apply to this collection.";
@@ -1013,6 +1056,7 @@ $lang["rename"]="Rename";
 $lang["showalllanguages"]="Show all languages";
 $lang["hidealllanguages"]="Hide all languages";
 $lang["clicktologinasthisuser"]="Click to log in as this user";
+$lang["clicktoviewlog"]="Click to view log";
 $lang["addkeyword"]="Add keyword";
 $lang["selectedresources"]="Selected resources";
 $lang["addresourcebatchlocalfolder"]="Add resource batch - fetch from local upload folder";
@@ -1137,6 +1181,7 @@ $lang["collectionlog-T"]="Stopped sharing collection with ";//  + notes field
 $lang["collectionlog-t"]="Stopped access to resource by ";//  + notes field
 $lang["collectionlog-X"]="Collection deleted";
 $lang["collectionlog-b"]="Batch transformed";
+$lang["collectionlog-A"]="Changed access to "; // +notes field
 $lang["collectionlog-Z"]="Collection downloaded";
 
 $lang["viewuncollectedresources"]="View resources not used in collections";
@@ -1598,6 +1643,7 @@ $lang["can_manage_users"]="Can manage users";
 $lang["can_manage_keywords"]="Can manage keywords";
 $lang["can_access_system_setup"]="Can access the System Setup area";
 $lang["can_change_own_password"]="Can change own account password";
+$lang["can_manage_users"]="Can manage users";
 $lang["can_manage_users_in_children_groups"]="Can manage users in children groups to the user's group only";
 $lang["can_email_resources_to_own_and_children_and_parent_groups"]="Can email resources to users in the user's own group, children groups and parent group only";
 
@@ -2068,7 +2114,7 @@ $lang["help__introtext"]="<p>Get the most out of ResourceSpace. The Knowledge Ba
 $lang["home__help"]="Help and advice to get the most out of ResourceSpace.";
 $lang["home__mycollections"]="Organise, collaborate & share your resources. Use these tools to help you work more effectively.";
 $lang["home__restrictedtext"]="Please click on the link that you were e-mailed to access the resources selected for you.";
-$lang["home__restrictedtitle"]="Welcome to ResourceSpace";
+$lang["home__restrictedtitle"]="Welcome to ResourceSpace [ver]";
 $lang["home__themes"]="The very best resources, hand picked and grouped.";
 $lang["home__welcometext"]="The simple, fast, &amp; free way to organise your digital assets.";
 $lang["home__welcometitle"]="Welcome to ResourceSpace [ver]";
@@ -2208,6 +2254,7 @@ $lang["systemconsoledebuglog"]="Debug log";
 $lang["systemconsolememorycpu"]="Memory &amp; CPU";
 $lang["systemconsoledatabase"]="Database";
 $lang["systemconsolesqllogtransactions"]="SQL Transaction Log";
+$lang["systemconsoleactivitylog"]="Activity Log";
 $lang["systemconsoleturnoffafter"]="Turn off after";
 $lang["systemconsoleonpermallusers"]="On (permanently for all users)";
 $lang["systemconsoleonallusers"]="On (all users)";
@@ -2244,6 +2291,7 @@ $lang['userpreference_cc_me_label'] = 'CC me when sending resources and collecti
 
 /* System Config */
 $lang['systemconfig'] = 'System configuration';
+$lang['systemconfig_linkedheaderimgsrc_label'] = 'Application logo';
 $lang['systemconfig_description'] = 'The options on this page are system wide and can change some of the functionality available to the users. Please note that any option that is also user specific will take precedence if set.';
 $lang['systemconfig_multilingual'] = 'Multilingual';
 $lang['systemconfig_default_language_label'] = 'Default language';
@@ -2305,4 +2353,13 @@ $lang["sendbulkmessage"]="Send bulk message";
 $lang["message_sent"]="Message sent";
 
 $lang["confirm_remove_custom_usergroup_access"]="This will revoke all custom user group access. Are you sure?";
+$lang['applogo_does_not_exists']="The uploaded logo is no longer available";
 
+/* Edit field options */
+$lang['manage_metadata_field_options'] = 'Manage metadata field options';
+$lang["system_performance"]="System performance";
+$lang["mysql_throughput"]="MySQL throughput";
+$lang["cpu_benchmark"]="CPU benchmark";
+$lang["disk_write_speed"]="Disk write speed";
+
+$lang["metadata_option_change_warning"]="Please note that at present, updating these options will not automatically alter stored parameters. Batch editing must be used to migrate existing stored values.";

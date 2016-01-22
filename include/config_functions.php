@@ -227,7 +227,13 @@ function set_config_option($user_id, $param_name, $param_value)
             is_null($user_id) ? 'IS NULL' : '= \'' . $user_id . '\'',
             $param_name
         );
-        }
+
+		if (is_null($user_id))		// only log activity for system changes, i.e. when user not specified
+			{
+			log_activity(null, LOG_CODE_EDITED, $param_value, 'user_preferences', 'value', "parameter='" . escape_check($param_name) . "'", null, $current_param_value);
+			}
+
+		}
 
     sql_query($query);
 
@@ -324,20 +330,9 @@ function process_config_options($user_id = null)
             $param_value = $config_option['value'];
 
             // Prepare the value since everything is stored as a string
-            switch($param_value)
+            if((is_numeric($param_value) && '' !== $param_value))
                 {
-                case '1':
-                case '0':
-                    $param_value = (bool) $param_value;
-                    break;
-
-                case is_numeric($param_value):
-                    $param_value = (int) $param_value;
-                    break;
-                
-                default:
-                    // we assume it is a string and set as-is
-                    break;
+                $param_value = (int) $param_value;
                 }
 
             $GLOBALS[$config_option['parameter']] = $param_value;
@@ -474,6 +469,76 @@ function config_text_input($name, $label, $current, $password = false, $width = 
 function config_add_text_input($config_var, $label, $password = false, $width = 300, $textarea = false, $title = null, $autosave = false)
     {
     return array('text_input', $config_var, $label, $password, $width, $textarea, $title, $autosave);
+    }
+
+
+/**
+* Generate an HTML input file with its own form
+*
+* @param string $name        HTML input file name attribute
+* @param string $label
+* @param string $form_action URL where the form should post to
+* @param int    $width       Wdidth of the input file HTML tag. Default - 300
+*/
+function config_file_input($name, $label, $current, $form_action, $width = 300)
+    {
+    global $lang,$storagedir;
+    
+    if($current !=='')
+		{ 
+		$missing_file = str_replace('[storage_url]', $storagedir, $current);
+		$pathparts=explode("/",$current);
+		}
+		
+    ?>
+    <div class="Question">
+        <form method="POST" action="<?php echo $form_action; ?>" enctype="multipart/form-data">
+            <label for="<?php echo $name; ?>"><?php echo $label; ?></label>
+            <div class="AutoSaveStatus">
+                <span id="AutoSaveStatus-<?php echo $name; ?>" style="display:none;"></span>
+            </div>
+        <?php
+        if($current !== '' && $pathparts[1]=="system" && !file_exists($missing_file))
+			{
+			?>
+            <span><?php echo $lang['applogo_does_not_exists']; ?></span>
+            <input type="submit" name="clear_<?php echo $name; ?>" value="<?php echo $lang["clearbutton"]; ?>">
+            <?php
+			}
+        elseif('' === $current || !get_config_option(null, $name, $current_option) || $current_option === '')
+            {
+            ?>
+            <input type="file" name="<?php echo $name; ?>" style="width:<?php echo $width; ?>px">
+            <input type="submit" name="upload_<?php echo $name; ?>" value="<?php echo $lang['upload']; ?>">
+            <?php
+            }
+        else
+            {
+            ?>
+            <span><?php echo htmlspecialchars(str_replace('[storage_url]/', '', $current), ENT_QUOTES); ?></span>
+            <input type="submit" name="delete_<?php echo $name; ?>" value="<?php echo $lang['action-delete']; ?>">
+            <?php
+            }
+            ?>
+        </form>
+        <div class="clearerleft"></div>
+    </div>
+    <?php
+    }
+
+
+/**
+* Return a data structure that will be used to generate the HTML for
+* uploading a file
+*
+* @param string $name        HTML input file name attribute
+* @param string $label
+* @param string $form_action URL where the form should post to
+* @param int    $width       Width of the input file HTML tag. Default - 300
+*/
+function config_add_file_input($config_var, $label, $form_action, $width = 300)
+    {   
+    return array('file_input', $config_var, $label, $form_action, $width);
     }
 
 
@@ -675,6 +740,91 @@ function config_generate_AutoSaveConfigOption_function($post_url)
     }
 
 
+function config_process_file_input(array $page_def, $file_location, $redirect_location)
+    {
+    global $baseurl, $storagedir, $storageurl;
+
+    $file_server_location = $storagedir . '/' . $file_location;
+
+    // Make sure there is a target location
+    if(!(file_exists($file_server_location) && is_dir($file_server_location)))
+        {
+        mkdir($file_server_location, 0777, true);
+        }
+
+    $redirect = false;
+
+    foreach($page_def as $page_element)
+        {
+        if($page_element[0] !== 'file_input')
+            {
+            continue;
+            }
+
+        $config_name = $page_element[1];
+
+        // DELETE
+        if(getval('delete_' . $config_name, '') !== '')
+            {
+            if(get_config_option(null, $config_name, $delete_filename))
+                {
+                $delete_filename = str_replace('[storage_url]' . '/' . $file_location, $file_server_location, $delete_filename);
+
+                if(file_exists($delete_filename) && unlink($delete_filename))
+                    {
+                    set_config_option(null, $config_name, '');
+
+                    $redirect = true;
+                    }
+                }
+            }
+        // CLEAR
+        if(getval('clear_' . $config_name, '') !== '')
+			{
+			if(get_config_option(null, $config_name, $missing_file))
+                {
+				$missing_file = str_replace('[storage_url]' . '/' . $file_location, $file_server_location, $missing_file);
+				 if(!file_exists($missing_file))
+					{
+					set_config_option(null, $config_name, '');
+
+					$redirect = true;
+					}
+				}
+			}
+
+        // UPLOAD
+        if(getval('upload_' . $config_name, '') !== '')
+            {
+            if(isset($_FILES[$config_name]['tmp_name']) && is_uploaded_file($_FILES[$config_name]['tmp_name']))
+                {
+                $uploaded_file_pathinfo  = pathinfo($_FILES[$config_name]['name']);
+                $uploaded_file_extension = $uploaded_file_pathinfo['extension'];
+                $uploaded_filename       = sprintf('%s/%s.%s', $file_server_location, $config_name, $uploaded_file_extension);
+                // We add a placeholder for storage_url so we can reach the file easily 
+                // without storing the full path in the database
+                $saved_filename          = sprintf('[storage_url]/%s/%s.%s', $file_location, $config_name, $uploaded_file_extension);
+
+                if(!move_uploaded_file($_FILES[$config_name]['tmp_name'], $uploaded_filename))
+                    {
+                    unset($uploaded_filename);
+                    }
+                }
+
+            if(isset($uploaded_filename) && set_config_option(null, $config_name, $saved_filename))
+                {
+                $redirect = true;
+                }
+            }
+        }
+
+    if($redirect)
+        {
+        redirect($redirect_location);
+        }
+    }
+
+
 /**
 * Generates HTML foreach element found in the page definition
 * 
@@ -694,6 +844,10 @@ function config_generate_html(array $page_def)
 
             case 'text_input':
                 config_text_input($def[1], $def[2], $GLOBALS[$def[1]], $def[3], $def[4], $def[5], $def[6], $def[7]);
+                break;
+
+            case 'file_input':
+                config_file_input($def[1], $def[2], $GLOBALS[$def[1]], $def[3], $def[4]);
                 break;
 
             case 'boolean_select':

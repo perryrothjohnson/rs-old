@@ -65,13 +65,21 @@ function upload_file($ref,$no_exif=false,$revert=false,$autorotate=false)
 
 		global $filename_field;
 		if($no_exif && isset($filename_field)) {
-			$user_set_filename = get_data_by_field($ref, $filename_field);
+			$user_set_filename            = get_data_by_field($ref, $filename_field);
+			$user_set_filename_path_parts = pathinfo($user_set_filename);
+
+			// $user_set_filename is for an already existing resource or when original filename is a visible field
+			// on the upload form
 			if(trim($user_set_filename) != '') {
 				// Get extension of file just in case the user didn't provide one
 				$path_parts = pathinfo($filename);
+					
 				$original_extension = $path_parts['extension'];
 
-				$filename = $user_set_filename;
+				if($original_extension == $user_set_filename_path_parts['extension'])
+					{
+					$filename = $user_set_filename;
+					}
 
 				// If the user filename doesn't have an extension add the original one
 				$path_parts = pathinfo($filename);
@@ -1240,7 +1248,10 @@ function create_previews_using_im($ref,$thumbonly=false,$extension="jpg",$previe
 			    $flatten = "-flatten";
 			}
 
-            $command = $convert_fullpath . ' '. escapeshellarg($file) .(($extension!="png" && $extension!="gif")?'[0] +matte ':'') . $flatten . ' -quality ' . $imagemagick_quality;
+            // Extensions for which the alpha/ matte channel should not be set to Off (i.e. +matte option)
+            $extensions_no_alpha_off = array('png', 'gif', 'tif');
+
+            $command = $convert_fullpath . ' '. escapeshellarg($file) . (!in_array($extension, $extensions_no_alpha_off) ? '[0] +matte ' : ' ') . $flatten . ' -quality ' . $imagemagick_quality;
 
 			# fetch target width and height
 			$tw=$ps[$n]["width"];$th=$ps[$n]["height"];

@@ -54,16 +54,17 @@ for ($n=0;$n<count($messages);$n++)
 	$message=escape_check($messages[$n]["message"]);
 	$message=htmlspecialchars($message,ENT_QUOTES);
 	$url_encoded=urlencode($messages[$n]["url"]);
+	$unread_css = ($messages[$n]["seen"]==0 ? " class='MessageUnread'" : "");
 	?>
 		<tr>
-			<td><?php echo nicedate($messages[$n]["created"],true); ?></td>
-			<td><?php echo $messages[$n]["owner"]; ?></td>
-			<td><a href="#Header" onclick="message_display('<?php echo $message; ?>','<?php
+			<td<?php echo $unread_css; ?>><?php echo nicedate($messages[$n]["created"],true); ?></td>
+			<td<?php echo $unread_css; ?>><?php echo $messages[$n]["owner"]; ?></td>
+			<td<?php echo $unread_css; ?>><a href="#Header" onclick="message_display('<?php echo $message; ?>','<?php
 				echo $url_encoded; ?>',<?php echo $messages[$n]["ref"]; ?>);"><?php
 					echo htmlentities(strip_tags($messages[$n]["message"]));
 					?></a></td>
-			<td><?php echo nicedate($messages[$n]["expires"]); ?></td>
-			<td><?php echo ($messages[$n]["seen"]==0 ? $lang['no'] : $lang['yes']); ?></td>
+			<td<?php echo $unread_css; ?>><?php echo nicedate($messages[$n]["expires"]); ?></td>
+			<td<?php echo $unread_css; ?>><?php echo ($messages[$n]["seen"]==0 ? $lang['no'] : $lang['yes']); ?></td>
 			<td>
 				<div class="ListTools">
 					<a href="<?php echo $messages[$n]["url"]; ?>">&gt;&nbsp;<?php echo $lang["link"]; ?></a>
@@ -71,7 +72,7 @@ for ($n=0;$n<count($messages);$n++)
 					if ($messages[$n]["seen"]==0)
 						{
 						?><a href="<?php echo $baseurl_short?>pages/user/user_messages.php" onclick="jQuery.get('<?php
-							echo $baseurl; ?>/pages/ajax/message.php?seen=<?php echo $messages[$n]['ref']; ?>');
+							echo $baseurl; ?>/pages/ajax/message.php?seen=<?php echo $messages[$n]['ref']; ?>',function() { message_poll(); });
 							return CentralSpaceLoad(this,true);
 							">&gt;&nbsp;<?php echo $lang["mymessages_markread"]; ?></a><?php
 						}

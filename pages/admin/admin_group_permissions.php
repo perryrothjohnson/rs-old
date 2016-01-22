@@ -46,6 +46,8 @@ if (getval("save","")!="")
 		{
 		$perms[]=getvalescaped("other","");
 		}
+
+	log_activity(null,LOG_CODE_EDITED,join(",",$perms),'usergroup','permissions',$ref,null,null,null,true);
 	sql_query("update usergroup set permissions='" . join(",",$perms) . "' where ref='$ref'");
 	}
 
@@ -289,6 +291,7 @@ else
 				</tr>
 <?php
 DrawOption("p", $lang["can_change_own_password"], true);
+DrawOption("u", $lang["can_manage_users"]);
 DrawOption("U", $lang["can_manage_users_in_children_groups"]);
 DrawOption("E", $lang["can_email_resources_to_own_and_children_and_parent_groups"]);
 DrawOption("x", $lang["allow_user_group_selection_for_access_when_sharing_externally"]);

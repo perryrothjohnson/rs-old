@@ -3,6 +3,7 @@
 # Functions to perform searches (read only)
 #  - For resource indexing / keyword creation, see resource_functions.php
 
+include_once 'node_functions.php';
 
 if (!function_exists("do_search")) {
 function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchrows=-1,$sort="desc",$access_override=false,$starsearch=0,$ignore_filters=false,$return_disk_usage=false,$recent_search_daylimit="", $go=false, $stats_logging=true)
@@ -10,7 +11,9 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
     debug("search=$search $go $fetchrows restypes=$restypes archive=$archive daylimit=$recent_search_daylimit");
     
     # globals needed for hooks   
-    global $sql,$order,$select,$sql_join,$sql_filter,$orig_order,$collections_omit_archived,$search_sql_double_pass_mode,$usergroup,$search_filter_strict,$default_sort;
+    global $sql,$order,$select,$sql_join,$sql_filter,$orig_order,$collections_omit_archived,$search_sql_double_pass_mode,$usergroup,$search_filter_strict,$default_sort,$superaggregationflag;
+
+	$superaggregation = isset($superaggregationflag) && $superaggregationflag===true ? ' WITH ROLLUP' : '';
 
     $alternativeresults = hook("alternativeresults", "", array($go));
     if ($alternativeresults) {return $alternativeresults; }
@@ -389,7 +392,7 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
                         $empty=true;
                         }
                     
-                    global $noadd, $wildcard_always_applied;
+                    global $noadd, $wildcard_always_applied, $wildcard_always_applied_leading;
                     if (in_array($keyword,$noadd)) # skip common words that are excluded from indexing
                         {
                         $skipped_last=true;
@@ -404,6 +407,11 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
                                 {
                                 # Suffix asterisk if none supplied and using $wildcard_always_applied mode.
                                 $keyword=$keyword."*";
+
+                                if($wildcard_always_applied_leading)
+                                    {
+                                    $keyword = '*' . $keyword;
+                                    }
                                 }
                             
                             # Keyword contains a wildcard. Expand.
@@ -520,7 +528,7 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
 										}
 									$union="SELECT resource, {$bit_or_condition} SUM(hit_count) AS score FROM resource_keyword k{$c}
 									WHERE (k{$c}.keyword={$keyref} {$filter_by_resource_field_type} {$relatedsql} {$union_restriction_clause})
-									GROUP BY resource";
+									GROUP BY resource{$superaggregation}";
 									$sql_keyword_union[]=$union;
 									}
 
@@ -566,8 +574,8 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
                             # Log this
                             if ($stats_logging) {daily_stat("Keyword usage",$keyref);}
                             }
+                        $skipped_last=false;
                         }
-                    $skipped_last=false;
                     }
                 }
             }
@@ -707,7 +715,7 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
 		$sql_join .= " join (
 		select resource,sum(score) as score,
 		" . join(", ", $sql_keyword_union_aggregation) . " from
-		(" . join(" union ", $sql_keyword_union) . ") as hits group by resource) as h on h.resource=r.ref ";
+		(" . join(" union ", $sql_keyword_union) . ") as hits group by resource{$superaggregation}) as h on h.resource=r.ref ";
 
         if ($sql_filter!="") {$sql_filter.=" and ";}
 		$sql_filter .= join(" and ", $sql_keyword_union_criteria);
@@ -729,7 +737,6 @@ function do_search($search,$restypes="",$order_by="relevance",$archive=0,$fetchr
     # --------------------------------------------------------------------------------
     $special_results=search_special($search,$sql_join,$fetchrows,$sql_prefix,$sql_suffix,$order_by,$orig_order,$select,$sql_filter,$archive,$return_disk_usage);
     if ($special_results!==false) {return $special_results;}
-
 
     # -------------------------------------------------------------------------------------
     # Standard Searches
@@ -857,7 +864,7 @@ function get_advanced_search_fields($archive=false, $hiddenfields="")
 
     $hiddenfields=explode(",",$hiddenfields);
 
-    $fields=sql_query("select ref, name, title, type, options ,order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, tooltip_text, display_as_dropdown, display_condition from resource_type_field where advanced_search=1 and keywords_index=1 and length(name)>0 " . (($archive)?"":"and resource_type<>999") . " order by resource_type,order_by");
+    $fields=sql_query("select *, ref, name, title, type ,order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, tooltip_text, display_as_dropdown, display_condition from resource_type_field where advanced_search=1 and keywords_index=1 and length(name)>0 " . (($archive)?"":"and resource_type<>999") . " order by resource_type,order_by");
     # Apply field permissions and check for fields hidden in advanced search
     for ($n=0;$n<count($fields);$n++)
         {
@@ -898,6 +905,8 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
     # $field    an associative array of field data, i.e. a row from the resource_type_field table.
     # $name     the input name to use in the form (post name)
     # $value    the default value to set for this field, if any
+
+    node_field_options_override($field);
     
     global $auto_order_checkbox,$auto_order_checkbox_case_insensitive,$lang,$category_tree_open,$minyear,$daterange_search,$is_search,$values,$n;
     $name="field_" . $field["ref"];
@@ -919,7 +928,11 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                     {
                     $scriptconditions[$condref]["field"] = $fields[$cf]["ref"];  # add new jQuery code to check value
                     $scriptconditions[$condref]['type'] = $fields[$cf]['type'];
-                    $scriptconditions[$condref]['options'] = $fields[$cf]['options'];
+
+                    //$scriptconditions[$condref]['options'] = $fields[$cf]['options'];
+
+                    $scriptconditions[$condref]['node_options'] = array();
+                    node_field_options_override($scriptconditions[$condref]['node_options'],$fields[$cf]['ref']);
 
                     $checkvalues=$s[1];
                     $validvalues=explode("|",strtoupper($checkvalues));
@@ -936,11 +949,15 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                         }
                     if (!$displayconditioncheck) {$displaycondition=false;}
                     #add jQuery code to update on changes
-                        if ($fields[$cf]["type"]==2 && $fields[$cf]["display_as_dropdown"]==0) # add onchange event to each checkbox field
+                        if (($fields[$cf]['type'] == 2 || $fields[$cf]['type'] == 3) && $fields[$cf]['display_as_dropdown'] == 0) # add onchange event to each checkbox field
                             {
                             # construct the value from the ticked boxes
                             $val=","; # Note: it seems wrong to start with a comma, but this ensures it is treated as a comma separated list by split_keywords(), so if just one item is selected it still does individual word adding, so 'South Asia' is split to 'South Asia','South','Asia'.
-                            $options=trim_array(explode(",",$fields[$cf]["options"]));
+                            //$options=trim_array(explode(",",$fields[$cf]["options"]));
+
+                            $options=array();
+                            node_field_options_override($options,$fields[$cf]['ref']);
+
                             ?><script type="text/javascript">
                             jQuery(document).ready(function() {<?php
                                 for ($m=0;$m<count($options);$m++)
@@ -966,7 +983,12 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                                 });
 
                                 <?php
-                                $options = trim_array(explode(',', $fields[$cf]['options']));
+
+                                $options=array();
+                                node_field_options_override($options,$fields[$cf]['ref']);
+
+                                //$options = trim_array(explode(',', ['options']));
+
                                 foreach ($options as $option) {
                                     $name = 'field_' . $fields[$cf]['ref'] . '_' . sha1($option); ?>
                                     
@@ -1022,8 +1044,12 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                     # Handle Radio Buttons type:
                     if($scriptcondition['type'] == 12) 
                         {
-                        $scriptcondition["options"] = explode(',', $scriptcondition["options"]);
-                        foreach ($scriptcondition["options"] as $key => $radio_button_value) 
+                        //$scriptcondition["options"] = explode(',', $scriptcondition["options"]);
+
+                        $scriptcondition["options"]=array();
+                        node_field_options_override($scriptcondition["options"],$scriptcondition["field"]);
+
+                        foreach ($scriptcondition["options"] as $key => $radio_button_value)
                             {
                             $scriptcondition["options"][$key] = sha1($radio_button_value);
                             }
@@ -1130,17 +1156,15 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
             # By default show a checkbox list for both (for multiple selections this enabled OR functionality)
             
             # Translate all options
-            $options=trim_array(explode(",",$field["options"]));
-            
             $adjusted_dropdownoptions=hook("adjustdropdownoptions");
             if ($adjusted_dropdownoptions){$options=$adjusted_dropdownoptions;}
             
             $option_trans=array();
             $option_trans_simple=array();
-            for ($m=0;$m<count($options);$m++)
+            for ($m=0;$m<count($field["node_options"]);$m++)
                 {
-                $trans=i18n_get_translated($options[$m]);
-                $option_trans[$options[$m]]=$trans;
+                $trans=i18n_get_translated($field["node_options"][$m]);
+                $option_trans[$field["node_options"][$m]]=$trans;
                 $option_trans_simple[]=$trans;
                 }
 
@@ -1183,12 +1207,14 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                 $newoptions=array();
                 foreach ($options as $option)
                     {
-                    if ($option!="" && (count($limit_keywords)==0 || in_array($option,$limit_keywords)))
+                    if ($option!=="" && (count($limit_keywords)==0 || in_array(strval($option,$limit_keywords))))
                         {
                         $newoptions[]=$option;
                         }
                     }
+					
                 $options=$newoptions;
+				
                 $height=ceil(count($options)/$cols);
 
                 global $checkbox_ordered_vertically, $checkbox_vertical_columns;
@@ -1210,7 +1236,7 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                                     $trans=$option_trans[$option];
 
                                     $name=$field["ref"] . "_" . md5($option);
-                                    if ($option!="")
+                                    if ($option!=="")
                                         {
                                         ?>
                                         <td valign=middle><input type=checkbox id="<?php echo htmlspecialchars($name) ?>" name="<?php echo ($name) ?>" value="yes" <?php if (in_array(cleanse_string($trans,true),$set)) {?>checked<?php } ?> <?php if ($autoupdate) { ?>onClick="UpdateResultCount();"<?php } ?>></td><td valign=middle><?php echo htmlspecialchars($trans)?>&nbsp;&nbsp;</td>
@@ -1235,7 +1261,7 @@ function render_search_field($field,$value="",$autoupdate,$class="stdwidth",$for
                         {
                         $wrap++;if ($wrap>$cols) {$wrap=1;?></tr><tr><?php }
                         $name=$field["ref"] . "_" . md5($option);
-                        if ($option!="")
+                        if ($option!=="")
                             {
                             ?>
                             <td valign=middle><input type=checkbox id="<?php echo htmlspecialchars($name) ?>" name="<?php echo htmlspecialchars($name) ?>" value="yes" <?php if (in_array(cleanse_string(i18n_get_translated($option),true),$set)) {?>checked<?php } ?> <?php if ($autoupdate) { ?>onClick="UpdateResultCount();"<?php } ?>></td><td valign=middle><?php echo htmlspecialchars($trans)?>&nbsp;&nbsp;</td>
@@ -1569,13 +1595,13 @@ function search_form_to_search_query($fields,$fromsearchbar=false)
             break;
             
             case 2: # -------- Dropdowns / check lists
-            case 3:
+            case 3:                
             if ($fields[$n]["display_as_dropdown"])
                 {
                 # Process dropdown box
                 $name="field_" . $fields[$n]["ref"];
                 $value=getvalescaped($name,"");
-                if ($value!="")
+                if ($value!=="")
                     {
                     /*
                     $vs=split_keywords($value);
@@ -1592,7 +1618,10 @@ function search_form_to_search_query($fields,$fromsearchbar=false)
             else
                 {
                 # Process checkbox list
-                $options=trim_array(explode(",",$fields[$n]["options"]));
+                //$options=trim_array(explode(",",$fields[$n]["options"]));
+                $options=array();                
+                node_field_options_override($options,$fields[$n]['ref']);
+
                 $p="";
                 $c=0;
                 for ($m=0;$m<count($options);$m++)
@@ -1759,7 +1788,10 @@ function search_form_to_search_query($fields,$fromsearchbar=false)
                 } else {
 
                     //Process checkbox behaviour (multiple options selected create a logical AND condition):
-                    $options = trim_array(explode(',', $fields[$n]['options']));
+                    //$options = trim_array(explode(',', $fields[$n]['options']));
+
+                    $options=array();
+                    node_field_options_override($options,$fields[$n]['ref']);
                     
                     $p = '';
                     $c = 0;
@@ -1768,14 +1800,15 @@ function search_form_to_search_query($fields,$fromsearchbar=false)
                         $value = getvalescaped($name, '');
 
                         if($value == $option) {
-                            $c++;
-                            if($p != '') {
+                            if($p != '' || ($p=='' && emptyiszero($value)))
+                                {
+                                $c++;
                                 $p .= ';';
-                            }
+                                }
                             $p .= mb_strtolower(i18n_get_translated($option), 'UTF-8');
                         }
                     }
-
+        
                     // All options ticked - omit from the search (unless using AND matching, or there is only one option intended as a boolean selection)
                     if(($c == count($options) && !$checkbox_and) && (count($options) > 1)) {
                         $p = '';
@@ -2293,7 +2326,7 @@ function search_special($search,$sql_join,$fetchrows,$sql_prefix,$sql_suffix,$or
         # Check access
         if(!collection_readable($collection))
             {
-            return false;
+	    return array();
             }
 
         # Smart collections update
@@ -2488,8 +2521,7 @@ function search_special($search,$sql_join,$fetchrows,$sql_prefix,$sql_suffix,$or
     # Since there will only be one special search executed at a time, only one of the
     # hook implementations will set the value.  So, you know that the value set
     # will always be the correct one (unless two plugins use the same !<type> value).
-    $sql="";
-    hook("addspecialsearch", "", array($search));
+    $sql=hook("addspecialsearch", "", array($search));
     
     if($sql != "")
         {

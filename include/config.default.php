@@ -136,6 +136,9 @@ and running.
 #$storagedir="/path/to/filestore"; # Where to put the media files. Can be absolute (/var/www/blah/blah) or relative to the installation. Note: no trailing slash
 #$storageurl="http://my.storage.server/filestore"; # Where the storagedir is available. Can be absolute (http://files.example.com) or relative to the installation. Note: no trailing slash
 
+# Store original files separately from RS previews? If this setting is adjusted with resources in the system you'll need to run ../pages/tools/filestore_separation.php.
+$originals_separate_storage=false;
+
 include "version.php";
 
 $applicationname="ResourceSpace"; # The name of your implementation / installation (e.g. 'MyCompany Resource System')
@@ -333,9 +336,10 @@ $unmanaged_home_dash_admins = false;
 # interval in hours to wait before sending another percent warning 
 #$disk_quota_notification_interval=24;
 $disk_quota_notification_email='';
+
 # GB of disk space left before uploads are disabled.
 # This causes disk space to be checked before each upload attempt
-$disk_quota_limit_size_warning_noupload=10;
+# $disk_quota_limit_size_warning_noupload=10;
 
 # Set your time zone below (default GMT)
 if (function_exists("date_default_timezone_set")) {date_default_timezone_set("GMT");}
@@ -894,6 +898,9 @@ $disable_quoted_printable_enc=false;
 # This makes sense if $terms_download is active.
 $watermark_open=false;
 
+# Set to true to extend $watermark_open to the search page. $watermark_open must be set to true.
+$watermark_open_search=false; 
+
 # Simple search even more simple
 # Set to 'true' to make the simple search bar more basic, with just the single search box.
 $basic_simple_search=false;
@@ -923,6 +930,9 @@ $hide_main_simple_search=false;
 
 # Use original filename when downloading a file?
 $original_filenames_when_downloading=true;
+
+# Should the download filename have the size appended to it?
+$download_filenames_without_size = false;
 
 # When $original_filenames_when_downloading, should the original filename be prefixed with the resource ID?
 # This ensures unique filenames when downloading multiple files.
@@ -1038,6 +1048,10 @@ $upload_do_not_add_to_new_collection_opt=true;
 $upload_collection_name_required=false;
 #Batch uploads - always upload to My Collection
 $upload_force_mycollection=false;
+#Batch Uploads, do not display hidden collections
+$hidden_collections_hide_on_upload=false;
+#Batch Uploads, include show/hide hidden collection toggle. Must have $hidden_collections_hide_on_upload=true;
+$hidden_collections_upload_toggle=false;
 
 # When batch uploading, enable the 'copy resource data from existing resource' feature
 $enable_copy_data_from=true;
@@ -1486,6 +1500,8 @@ $small_thumbs_display_extended_fields=array();
 	$small_search_results_title_trim=30;
 	$small_search_results_title_wordwrap=100;
 
+# Enable list view option for search screen
+$searchlist=true;
 # List Display Fields: array of fields to display on the list view
 $list_display_fields=array(8,3,12);
 $list_search_results_title_trim=25;
@@ -1864,6 +1880,8 @@ $autorotate_no_ingest=false;
 $autorotate_ingest=false;
 # The default workflow state for imported files (-2 = pending submission, -1 = pending review, etc.)
 $staticsync_defaultstate=0;
+# Archive state to set for resources where files have been deleted/moved from syncdir
+$staticsync_deleted_state=2;
 
 # Uncomment and set to the ref of the user account that the staticsync resources will be 'created by' 
 # $staticsync_userref=-1;
@@ -2014,6 +2032,7 @@ $use_checkboxes_for_selection=false;
 
 # allow player for mp3 files
 # player docs at http://flash-mp3-player.net/players/maxi/
+# Updated October 2015 so will use VideoJS if enabled ($videojs=true;)
 $mp3_player=true;
 
 # Show the performance metrics in the footer (for debug)
@@ -2167,6 +2186,9 @@ $wildcard_expand_limit=50;
 # It will also cause some other features to be disabled: related keywords and quoted string support
 $wildcard_always_applied=false;
 
+# Set to true if wildcard should also be prepended to the keyword
+$wildcard_always_applied_leading = false;
+
 
 
 # "U" permission allows management of users in the current group as well as children groups. TO test stricter adherence to the idea of "children only", set this to true. 
@@ -2279,12 +2301,14 @@ $icc_preview_options = '-intent perceptual -black-point-compensation';
 $collection_dropdown_user_access_mode=false;
 
 # show mp3 player in xlarge thumbs view (if $mp3_player=true)
-$mp3_player_xlarge_view=false;
+$mp3_player_xlarge_view=true;
 # show flv player in xlarge thumbs view 
 $flv_player_xlarge_view=false;
 # show embedded swfs in xlarge thumbs view 
 $display_swf_xlarge_view=false;
 
+# show mp3 player in thumbs view (if $mp3_player=true)
+$mp3_player_thumbs_view=false;
 # show flv player in thumbs view 
 $video_player_thumbs_view=false;
 # show flv player in small thumbs view 
@@ -2294,7 +2318,7 @@ $video_player_small_thumbs_view=false;
 $video_player_thumbs_view_alt=false;
 #$video_player_thumbs_view_alt_name='searchprev';
 
-# play vidoes on hover instead of on click
+# play videos/audio on hover instead of on click
 $video_search_play_hover=false; // search.php
 $video_view_play_hover=false; // view.php
 $video_preview_play_hover=false; // preview.php and preview_all.php
@@ -2792,3 +2816,14 @@ $soundex_suggest_limit=10;
 # Option for custom access to override search filters.
 # For this resource, if custom access has been granted for the user or group, nullify the filter for this particular 
 $custom_access_overrides_search_filter=false;
+
+# When requesting a resource or resources, is the "reason for request" field mandatory?
+$resource_request_reason_required=true;
+
+# Use the 'chosen' library for rendering dropdowns (improved display and search capability for large dropdowns)
+$chosen_dropdowns=false;
+
+# Allow ResourceSpace to upload multiple times the same file in a row
+# Set to true only if you want RS to create duplicates when client is losing
+# connection with the server and tries again to send the last chunk
+$plupload_allow_duplicates_in_a_row = false;

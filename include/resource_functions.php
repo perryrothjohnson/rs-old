@@ -2,6 +2,8 @@
 # Resource functions
 # Functions to create, edit and index resources
 
+include_once __DIR__ . '/definitions.php';		// includes log code definitions for resource_log() callers.
+
 function create_resource($resource_type,$archive=999,$user=-1)
 	{
 	# Create a new resource.
@@ -89,20 +91,22 @@ function save_resource_data($ref,$multi,$autosave_field="")
                 && ($autosave_field=="" || $autosave_field==$fields[$n]["ref"] || (is_array($autosave_field) && in_array($fields[$n]["ref"],$autosave_field)))
                 )
 			{
-			
+
+            node_field_options_override($fields[$n]);
+
 			if ($fields[$n]["type"]==2)
 				{
 				# construct the value from the ticked boxes
 				$val=","; # Note: it seems wrong to start with a comma, but this ensures it is treated as a comma separated list by split_keywords(), so if just one item is selected it still does individual word adding, so 'South Asia' is split to 'South Asia','South','Asia'.
-				$options=trim_array(explode(",",$fields[$n]["options"]));
+				//$options=trim_array(explode(",",$fields[$n]["options"]));
 
-				for ($m=0;$m<count($options);$m++)
+				for ($m=0;$m<count($fields[$n]['node_options']);$m++)
 					{
-					$name=$fields[$n]["ref"] . "_" . md5($options[$m]);
+					$name=$fields[$n]["ref"] . "_" . md5($fields[$n]['node_options'][$m]);
 					if (getval($name,"")=="yes")
 						{
 						if ($val!=",") {$val.=",";}
-						$val.=$options[$m];
+						$val.=$fields[$n]['node_options'][$m];
 						}
 					}
 				}
@@ -903,22 +907,22 @@ function update_field($resource,$field,$value)
 	if (!is_numeric($field)){$field=sql_value("select ref value from resource_type_field where name='".escape_check($field)."'","");}
 
 	# Fetch some information about the field
-	$fieldinfo=sql_query("select keywords_index,resource_column,partial_index,type, onchange_macro, options from resource_type_field where ref='$field'");
+	$fieldinfo=sql_query("select keywords_index,resource_column,partial_index,type, onchange_macro from resource_type_field where ref='$field'");
 
 	if (count($fieldinfo)==0) {return false;} else {$fieldinfo=$fieldinfo[0];}
 	
         # If this is a dynamic keyword we need to add it to the field options
         if($fieldinfo['type']==9 && !checkperm('bdk' . $field))
             {
-            $fieldoptions=explode(",",$fieldinfo['options']);
+            $fieldoptions= get_nodes($field);
             $currentoptions=array();
             foreach($fieldoptions as $fieldoption)
                 {
-                $fieldoptiontranslations=explode("~",$fieldoption);
+                $fieldoptiontranslations=explode("~",$fieldoption['name']);
                 if (count($fieldoptiontranslations)<2)
                     {
-                    $currentoptions[]=trim($fieldoption); # Not a translatable field
-                    debug("update_field: current field option: '" . trim($fieldoption) . "'<br>");
+                    $currentoptions[]=trim($fieldoption['name']); # Not a translatable field
+                    debug("update_field: current field option: '" . trim($fieldoption['name']) . "'<br>");
                     }
                 else
                     {
@@ -936,7 +940,7 @@ function update_field($resource,$field,$value)
                             # Support both 2 character and 5 character language codes (for example en, en-US).
                             $p=strpos($fieldoptiontranslations[$n],':');                         
                             $currentoptions[]=trim(substr($fieldoptiontranslations[$n],$p+1));
-                            debug("update_field: urrent field option: '" . trim(substr($fieldoptiontranslations[$n],$p+1)) . "'<br>");
+                            debug("update_field: current field option: '" . trim(substr($fieldoptiontranslations[$n],$p+1)) . "'<br>");
                             } 
                         }
                     }
@@ -948,7 +952,10 @@ function update_field($resource,$field,$value)
                 if(!in_array($newvalue,$currentoptions))
                     {
                     # Append the option and update the field
-                    sql_query("update resource_type_field set options=concat(ifnull(options,''), ', " . escape_check(trim($newvalue)) . "') where ref='$field'");
+                    //sql_query("update resource_type_field set options=concat(ifnull(options,''), ', " . escape_check(trim($newvalue)) . "') where ref='$field'");
+
+                    set_node(null,$field,escape_check(trim($newvalue)),null,null);
+
                     $currentoptions[]=trim($newvalue);
                     debug("update_field: field option added: '" . trim($newvalue) . "'<br>");
                     }                    
@@ -994,6 +1001,13 @@ function update_field($resource,$field,$value)
 			{
 			global $resource_field_column_limit;
 			$truncated_value = substr($value, 0, $resource_field_column_limit);
+
+            // Remove backslashes from the end of the truncated value
+            if(substr($truncated_value, -1) === '\\')
+                {
+                $truncated_value = substr($truncated_value, 0, strlen($truncated_value) - 1);
+                }
+
 			if(substr($truncated_value, -1) !== '\'')
 				{
 				$truncated_value .= '\'';
@@ -1526,7 +1540,7 @@ function relate_to_array($ref,$array)
 function get_exiftool_fields($resource_type)
 	{
 	# Returns a list of exiftool fields, which are basically fields with an 'exiftool field' set.
-	return sql_query("select ref,type,exiftool_field,exiftool_filter,options,name from resource_type_field where length(exiftool_field)>0 and (resource_type='$resource_type' or resource_type='0')  order by exiftool_field");
+	return sql_query("select f.ref,f.type,f.exiftool_field,f.exiftool_filter,group_concat(n.name) as options,f.name from resource_type_field f left join node n on f.ref=n.resource_type_field where length(exiftool_field)>0 and (resource_type='$resource_type' or resource_type='0')  group by f.ref order by exiftool_field");
 	}
 
 function write_metadata($path, $ref, $uniqid="")
@@ -1632,32 +1646,24 @@ function write_metadata($path, $ref, $uniqid="")
                         break;
                     case "keywords":                  
                         # Keywords shall be written one at a time and not all together.
-			if(!isset($writtenfields["keywords"])){$writtenfields["keywords"]="";} 
-			$keywords = explode(",", $writevalue); # "keyword1,keyword2, keyword3" (with or without spaces)
-                        if (implode("", $keywords) != "")
+						if(!isset($writtenfields["keywords"])){$writtenfields["keywords"]="";} 
+						$keywords = explode(",", $writevalue); # "keyword1,keyword2, keyword3" (with or without spaces)
+						if (implode("", $keywords) != "")
                         	{
                         	# Only write non-empty keywords/ may be more than one field mapped to keywords so we don't want to overwrite with blank
 	                        foreach ($keywords as $keyword)
 	                            {
-	                            $keyword = trim($keyword);
+                                $keyword = trim($keyword);
 	                            if ($keyword != "")
-	                            	{
-                                        if($exifappend)
-                                            {
-                                            if(strpos($writtenfields[$group_tag],$keyword)!==false)
-                                                {
-                                                // The new keyword is already included in what is being written, skip to next group tag
-                                                continue;                                
-                                                } 
-                                            $writtenfields[$group_tag].=$keyword;
-                                            }
-                                        else
-                                            {$writtenfields[$group_tag]=$writevalue;} 
-                                        # Convert the data to UTF-8 if not already.
-                                        if (!$exiftool_write_omit_utf8_conversion && (!isset($mysql_charset) || (isset($mysql_charset) && strtolower($mysql_charset)!="utf8"))){$keyword = mb_convert_encoding($keyword, 'UTF-8');}
-                                        $command.= escapeshellarg("-" . $group_tag . ($exifappend?"+":"") . "=" . htmlentities($keyword, ENT_QUOTES, "UTF-8")) . " ";
-                                        }
-                                    $exifappend=true; // Need to append for subsequent values
+	                            	{    
+									debug("write_metadata - writing keyword:" . $keyword);
+									$writtenfields[$group_tag].="," . $keyword;
+										 
+									# Convert the data to UTF-8 if not already.
+									if (!$exiftool_write_omit_utf8_conversion && (!isset($mysql_charset) || (isset($mysql_charset) && strtolower($mysql_charset)!="utf8"))){$keyword = mb_convert_encoding($keyword, 'UTF-8');}
+									$command.= escapeshellarg("-" . $group_tag . "-=" . htmlentities($keyword, ENT_QUOTES, "UTF-8")) . " "; // In case value is already embedded, need to manually remove it to prevent duplication
+									$command.= escapeshellarg("-" . $group_tag . "+=" . htmlentities($keyword, ENT_QUOTES, "UTF-8")) . " ";
+									}
 	                            }
 	                        }
                         break;
@@ -2061,7 +2067,7 @@ function get_fields_with_options()
     # Used for 'manage field options' page.
 
     # Executes query.
-    $fields = sql_query("select ref, name, title, type, options ,order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, display_as_dropdown from resource_type_field where type in (2,3,9) order by resource_type,order_by");
+    $fields = sql_query("select ref, name, title, type, order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, display_as_dropdown from resource_type_field where type in (2,3,9) order by resource_type,order_by");
 
     # Applies permissions and translates field titles in the newly created array.
     $return = array();
@@ -2080,7 +2086,7 @@ function get_field($field)
     # A standard field title is translated using $lang.  A custom field title is i18n translated.
 
     # Executes query.
-    $r = sql_query("select ref, name, title, type, options ,order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, display_as_dropdown from resource_type_field where ref='$field'");
+    $r = sql_query("select ref, name, title, type, order_by, keywords_index, partial_index, resource_type, resource_column, display_field, use_for_similar, iptc_equiv, display_template, tab_name, required, smart_theme_name, exiftool_field, advanced_search, simple_search, help_text, display_as_dropdown from resource_type_field where ref='$field'");
 
     # Translates the field title if the searched field is found.
     if (count($r)==0) {
@@ -2097,10 +2103,13 @@ function get_field_options_with_stats($field)
 	# For a given field, list all options with usage stats.
 	# This is for the 'manage field options' page.
 
-	$rawoptions=sql_value("select options value from resource_type_field where ref='$field'","");
-	$options=trim_array(explode(",",i18n_get_translated($rawoptions)));
-	$rawoptions=trim_array(explode(",",$rawoptions));
-	
+	//$rawoptions=sql_value("select options value from resource_type_field where ref='$field'","");
+	//$options=trim_array(explode(",",i18n_get_translated($rawoptions)));
+    //$rawoptions=trim_array(explode(",",$rawoptions));
+
+    $rawoptions=array();
+    node_field_options_override($rawoptions,$field);
+
 	# For the given field, fetch a stats count for each keyword.
 	$usage=sql_query("
 		  SELECT rk.resource_type_field,
@@ -2137,7 +2146,8 @@ function save_field_options($field)
 	global $languages,$defaultlanguage;
 	
 	$fielddata=get_field($field);
-	$options=trim_array(explode(",",$fielddata["options"]));
+	$options=get_nodes($field);
+	//$options=trim_array(explode(",",$fielddata["options"]));
 
 	for ($n=0;$n<count($options);$n++)
 		{
@@ -2160,8 +2170,13 @@ function save_field_options($field)
 			$newoptions=array_merge(array_slice($options,0,$n),array($new),array_slice($options,$n+1));
 
 			# Update the options field.
-			sql_query("update resource_type_field set options='" . escape_check(join(", ",$newoptions)) . "' where ref='$field'");
-			
+			//sql_query("update resource_type_field set options='" . escape_check(join(", ",$newoptions)) . "' where ref='$field'");
+
+            foreach ($newoptions as $no)
+                {
+                set_node(null,$field,$no,null,null);
+                }
+
 			# Loop through all matching resources.
 			# The matches list uses 'like' so could potentially return values that do not have this option set. However each value list split out and analysed separately.
 			$matching=sql_query("select resource,value from resource_data where resource_type_field='$field' and value like '%" . escape_check($options[$n]) . "%'");
@@ -2205,7 +2220,12 @@ function save_field_options($field)
 			# Construct a new options value by creating a new array ommitting the item in position $n
 			$new=array_merge(array_slice($options,0,$n),array_slice($options,$n+1));
 			
-			sql_query("update resource_type_field set options='" . escape_check(join(", ",$new)) . "' where ref='$field'");
+			//sql_query("update resource_type_field set options='" . escape_check(join(", ",$new)) . "' where ref='$field'");
+
+            foreach ($new as $new_option)
+                {
+                set_node(null,$field,escape_check(trim($new_option)),null,null);
+                }
 			
 			# Loop through all matching resources.
 			# The matches list uses 'like' so could potentially return values that do not have this option set. However each value list split out and analysed separately.
@@ -2260,7 +2280,8 @@ function get_keyword_from_option($option)
 	
 function add_field_option($field,$option)
 	{
-	sql_query("update resource_type_field set options=concat(ifnull(options,''),', " . escape_check($option) . "') where ref='$field'");
+	//sql_query("update resource_type_field set options=concat(ifnull(options,''),', " . escape_check($option) . "') where ref='$field'");
+    set_node(null,$field,escape_check(trim($option)),null,null);
 	return true;
 	}
 
@@ -2354,24 +2375,29 @@ function get_resource_access($resource)
 	# Check for user-specific and group-specific access (overrides any other restriction)
 	global $userref,$usergroup;
 
-	if ($passthru=="no")
+	// We need to check for custom access either when access is set to be custom or
+	// when the user group has restricted access to all resource types or specific resource types
+	// are restricted
+    if ($access!=0 || !checkperm('g') || checkperm('X' . $resource_type))
         {
-		$userspecific=get_custom_access_user($resource,$userref);
-		$groupspecific=get_custom_access($resource,$usergroup,false);	
-		} 
-	else
-        {
-		$userspecific=$resourcedata['user_access'];
-		$groupspecific=$resourcedata['group_access'];
-		}
-
+        if ($passthru=="no")
+            {
+            $userspecific=get_custom_access_user($resource,$userref);
+            $groupspecific=get_custom_access($resource,$usergroup,false);	
+            } 
+        else
+            {
+            $userspecific=$resourcedata['user_access'];
+            $groupspecific=$resourcedata['group_access'];
+            }
+        }
 	
-	if ($userspecific!="")
+	if (isset($userspecific) && $userspecific!="")
 		{
 		$customuseraccess=true;
 		return $userspecific;
 		}
-	if ($groupspecific!="")
+	if (isset($groupspecific) && $groupspecific!="")
 		{
 		$customgroupaccess=true;
 		return $groupspecific;
@@ -2423,7 +2449,7 @@ function get_resource_access($resource)
                 if (count($results)==0) {return 2;} # Not found in results, so deny
                 }
 		
-	if ($access==0 && !checkperm("g") && !$customgroupaccess)
+	if ($access==0 && !checkperm("g") && !$customgroupaccess && !$customuseraccess)
 		{
 		# User does not have the 'g' permission. Return restricted for active resources unless group has been granted overide access.
 		$access=1; 
@@ -2492,7 +2518,7 @@ function resource_download_allowed($resource,$size,$resource_type,$alternative=-
 		{
 		# Block access to this resource type / size? Not if an alternative file
 		# Only if no specific user access override (i.e. they have successfully requested this size).
-		global $userref;
+		global $userref, $usergroup;
 		$usercustomaccess = get_custom_access_user($resource,$userref);
 		$usergroupcustomaccess = get_custom_access($resource,$usergroup);
 		if (($usercustomaccess === false || !($usercustomaccess==='0')) && ($usergroupcustomaccess === false || !($usergroupcustomaccess==='0'))) {return false;}
@@ -2785,12 +2811,13 @@ function get_metadata_templates()
  
 function get_resource_collections($ref)
 	{
-	global $userref;
-	
+	global $userref, $anonymous_user, $username;
+	if (checkperm('b') || (isset($anonymous_login) && $username==$anonymous_login))
+		{return array();}
 	# Returns a list of collections that a resource is used in for the $view_resource_collections option
 	$sql="";
    
-    # Include themes in my collecions? 
+    # Include themes in my collections? 
     # Only filter out themes if $themes_in_my_collections is set to false in config.php
    	global $themes_in_my_collections;
    	if (!$themes_in_my_collections)
@@ -2822,8 +2849,8 @@ function check_use_watermark(){
 	# if access is restricted and the group has "w"
 	# if $watermark_open is true and the group has "w"
 	# if $watermark is set and it's an external share.
-	global $access,$k,$watermark,$watermark_open,$pagename;
-	if (($watermark_open && ($pagename == "preview" || $pagename == "view") || $access==1) && (checkperm('w') || ($k!="" && isset($watermark)))){return true;} else {return false;} 
+	global $access,$k,$watermark,$watermark_open,$pagename,$watermark_open_search;
+	if (($watermark_open && ($pagename == "preview" || $pagename == "view" || ($pagename == "search" && $watermark_open_search)) || $access==1) && (checkperm('w') || ($k!="" && isset($watermark)))){return true;} else {return false;}
 }
 
 function autocomplete_blank_fields($resource)
@@ -3501,6 +3528,3 @@ function delete_resource_custom_access_usergroups($ref)
         # delete all usergroup specific access to resource $ref
         sql_query("delete from resource_custom_access where resource='" . escape_check($ref) . "' and usergroup is not null");
         }
-
-
-

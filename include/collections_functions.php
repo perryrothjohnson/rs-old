@@ -334,11 +334,24 @@ function create_collection($userid,$name,$allowchanges=0,$cant_delete=0)
 function delete_collection($ref)
 	{
 	# Deletes the collection with reference $ref
+	global $home_dash;
+	
 	hook("beforedeletecollection");
 	sql_query("delete from collection where ref='$ref'");
 	sql_query("delete from collection_resource where collection='$ref'");
 	sql_query("delete from collection_keyword where collection='$ref'");
-		#log this
+	
+	if($home_dash)
+		{
+		// Delete any dash tiles pointing to this collection
+		$collection_dash_tiles=sql_array("select ref value from dash_tile WHERE link like '%search.php?search=!collection" . $ref . "&%'",0);
+		if(count($collection_dash_tiles)>0)
+			{
+			sql_query("delete from dash_tile WHERE ref in (" .  implode(",",$collection_dash_tiles) . ")");
+			sql_query("delete from user_dash_tile WHERE dash_tile in (" .  implode(",",$collection_dash_tiles) . ")");
+			}
+		}
+	// log this
 	collection_log($ref,"X",0, "");
 	}
 	
@@ -559,7 +572,7 @@ function index_collection($ref,$index_string='')
 	
 	// if an index string wasn't supplied, generate one
 	if (!strlen($index_string) > 0){
-		$indexarray = sql_query("select $indexfields from collection c join user u on u.ref=c.user and c.ref = '$ref'");
+		$indexarray = sql_query("select $indexfields from collection c left join user u on u.ref=c.user where c.ref = '$ref'");
 		for ($i=0; $i<count($indexarray); $i++){
 			$index_string = "," . implode(',',$indexarray[$i]);
 		} 
@@ -584,6 +597,8 @@ function save_collection($ref)
 	if (!collection_writeable($ref)) {return false;}
 	
 	$allow_changes=(getval("allow_changes","")!=""?1:0);
+
+    $public = getvalescaped('public', '', true);
 	
 	# Next line disabled as it seems incorrect to override the user's setting here. 20071217 DH.
 	#if ($theme!="") {$allow_changes=0;} # lock allow changes to off if this is a theme
@@ -591,10 +606,10 @@ function save_collection($ref)
 	# Update collection with submitted form data
 	if (!hook('modifysavecollection')) {
 	$sql="update collection set
-				name='" . urldecode(getvalescaped("name","")) . "',
+				name='" . rawurldecode(getvalescaped("name","")) . "',
 				".hook('savecollectionadditionalfields')."
 				keywords='" . getvalescaped("keywords","") . "',
-				public='" . getvalescaped("public","",true) . "',";
+				public='" . $public . "',";
 		
 		for($n=1;$n<=$theme_category_levels;$n++){
 			if ($n==1){$themeindex="";} else {$themeindex=$n;}
@@ -628,58 +643,57 @@ function save_collection($ref)
 	} # end replace hook - modifysavecollection
 	
 	index_collection($ref);
-		
-	# If 'users' is specified (i.e. access is private) then rebuild users list
-	$users=getvalescaped("users",false);
-	if ($users!==false)
-		{
-		sql_query("delete from user_collection where collection='$ref'");
-		
-		if ($attach_user_smart_groups)
-			{
-			sql_query("delete from usergroup_collection where collection='$ref'");
-			}
-			
-		#log this
-		collection_log($ref,"T",0, '#all_users');
 
-		if (($users)!="")
+    // Log changing access for this collection
+    // AC: save_collection() should be changed in terms of the way it works
+    // as it submits everything rather then just update only what is needed
+    collection_log($ref, 'A', 0, $public ? 'public' : 'private');
+
+	sql_query("delete from user_collection where collection='$ref'");
+	
+	if ($attach_user_smart_groups)
+		{
+		sql_query("delete from usergroup_collection where collection='$ref'");
+		}
+
+    # If 'users' is specified (i.e. access is private) then rebuild users list
+    $users=getvalescaped("users",false);
+	if (($users)!="")
+		{
+		# Build a new list and insert
+		$users=resolve_userlist_groups($users);
+		$ulist=array_unique(trim_array(explode(",",$users)));
+		$urefs=sql_array("select ref value from user where username in ('" . join("','",$ulist) . "')");
+		if (count($urefs)>0)
 			{
-			# Build a new list and insert
-			$users=resolve_userlist_groups($users);
-			$ulist=array_unique(trim_array(explode(",",$users)));
-			$urefs=sql_array("select ref value from user where username in ('" . join("','",$ulist) . "')");
-			if (count($urefs)>0)
+			sql_query("insert into user_collection(collection,user) values ($ref," . join("),(" . $ref . ",",$urefs) . ")");
+			}
+		#log this
+		collection_log($ref,"S",0, join(", ",$ulist));
+		
+		if($attach_user_smart_groups)
+			{
+			$groups=resolve_userlist_groups_smart($users);
+			$groupnames='';
+			if($groups!='')
 				{
-				sql_query("insert into user_collection(collection,user) values ($ref," . join("),(" . $ref . ",",$urefs) . ")");
-				}
-			#log this
-			collection_log($ref,"S",0, join(", ",$ulist));
-			
-			if($attach_user_smart_groups)
-				{
-				$groups=resolve_userlist_groups_smart($users);
-				$groupnames='';
-				if($groups!='')
-					{
-					$groups=explode(",",$groups);
-					
-					if (count($groups)>0)
-						{ 
-						foreach ($groups as $group)
+				$groups=explode(",",$groups);
+				
+				if (count($groups)>0)
+					{ 
+					foreach ($groups as $group)
+						{
+						sql_query("insert into usergroup_collection(collection,usergroup) values ($ref,$group)");
+						// get the group name
+						if($groupnames!='')
 							{
-							sql_query("insert into usergroup_collection(collection,usergroup) values ($ref,$group)");
-							// get the group name
-							if($groupnames!='')
-								{
-								$groupnames.=", ";
-								}
-								$groupnames.=sql_value("select name value from usergroup where ref={$group}","");
+							$groupnames.=", ";
 							}
+							$groupnames.=sql_value("select name value from usergroup where ref={$group}","");
 						}
-					#log this
-					collection_log($ref,"S",0, $groupnames);
 					}
+				#log this
+				collection_log($ref,"S",0, $groupnames);
 				}
 			}
 		}
@@ -1736,6 +1750,8 @@ $lang["collectionlog-T"]="Stopped sharing collection with ";//  + notes field
 $lang["collectionlog-t"]="Stopped access to resource by ";//  + notes field
 $lang["collectionlog-X"]="Collection deleted";
 $lang["collectionlog-b"]="Batch transformed";
+$lang["collectionlog-A"]="Changed access to "; // +notes field
+$lang["collectionlog-Z"]="Collection downloaded";
 */
 function get_collection_log($collection, $fetchrows=-1)
 	{
@@ -1964,7 +1980,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
            $edit_all_checkperms, $preview_all, $order_by, $sort, $archive, $contact_sheet_link_on_collection_bar,
            $show_searchitemsdiskusage, $emptycollection, $remove_resources_link_on_collection_bar, $count_result,
            $download_usage, $home_dash, $top_nav_upload_type, $pagename, $offset, $col_order_by, $find, $default_sort,
-           $starsearch, $restricted_share;
+           $starsearch, $restricted_share, $hidden_collections;
 
     $options = array();
 	$o=0;
@@ -2032,7 +2048,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
         }
 
     // Edit Collection
-    if(($userref == $collection_data['user']) || (checkperm('h'))) 
+    if((($userref == $collection_data['user']) || (checkperm('h')))  && $k == '') 
         {
         $extra_tag_attributes = sprintf('
                 data-url="%spages/collection_edit.php?ref=%s"
@@ -2049,7 +2065,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
         }
 
     // Upload to collection
-    if((checkperm('c') || checkperm('d')) && $collection_data['savedsearch'] == 0 && ($userref == $collection_data['user'] || $collection_data['allow_changes'] == 1 || checkperm('h')))
+    if(((checkperm('c') || checkperm('d')) && $collection_data['savedsearch'] == 0 && ($userref == $collection_data['user'] || $collection_data['allow_changes'] == 1 || checkperm('h'))) && $k == '')
         {
         $data_attribute['url'] = sprintf('%spages/edit.php?uploader=%s&ref=-%s&collection_add=%s',
             $baseurl_short,
@@ -2065,7 +2081,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
         }
 
     // Home_dash is on, AND NOT Anonymous use, AND (Dash tile user (NOT with a managed dash) || Dash Tile Admin)
-    if(!$top_actions && $home_dash && checkPermission_dashcreate())
+    if(!$top_actions && $home_dash && $k == '' && checkPermission_dashcreate())
         {
         $data_attribute['url'] = sprintf('
             %spages/dash_tile.php?create=true&tltype=srch&promoted_resource=true&freetext=true&all_users=1&link=/pages/search.php?search=!collection%s&order_by=relevance&sort=DESC
@@ -2159,7 +2175,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
         }
 
     // Remove
-    if($k=="" && $manage_collections_remove_link && $userref != $collection_data['user'])
+    if($k=="" && $manage_collections_remove_link && $userref != $collection_data['user'] && !checkperm('b'))
         {
         $options[$o]['value']='remove_collection';
 		$options[$o]['label']=$lang['action-remove'];
@@ -2183,7 +2199,7 @@ function compile_collection_actions(array $collection_data, $top_actions)
         }
 
     // Collection log
-    if($k=="" && ($userref== $collection_data['user']) || (checkperm('h')))
+    if($k=="" && ($userref== $collection_data['user'] || (checkperm('h'))))
         {
         $extra_tag_attributes = sprintf('
                 data-url="%spages/collection_log.php?ref=%s"
@@ -2336,7 +2352,25 @@ function compile_collection_actions(array $collection_data, $top_actions)
         );
 
 		$o++;
-        }
+    
+		// Hide Collection
+		$user_mycollection=sql_value("select ref value from collection where user={$userref} and name='My Collection' order by ref limit 1","");
+		// check that this collection is not hidden. use first in alphabetical order otherwise
+		if(in_array($user_mycollection,$hidden_collections)){
+			$hidden_collections_list=implode(",",array_filter($hidden_collections));
+			$user_mycollection=sql_value("select ref value from collection where user={$userref}" . ((trim($hidden_collections_list)!='')?" and ref not in(" . $hidden_collections_list . ")":"") . " order by ref limit 1","");
+		}
+		$extra_tag_attributes = sprintf('
+                data-mycol="%s"
+            ',
+            urlencode($user_mycollection)
+        );
+		
+		$options[$o]['value'] = 'hide_collection';
+		$options[$o]['label'] = $lang['hide_collection'];
+		$options[$o]['extra_tag_attributes']=$extra_tag_attributes;	
+		$o++;
+		}
 
     // Add extra collection actions and manipulate existing actions through plugins
     $modified_options = hook('render_actions_add_collection_option', '', array($top_actions,$options));
