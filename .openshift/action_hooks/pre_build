@@ -1,5 +1,6 @@
 #!/bin/bash
 # This script is executed before the app is rebuilt
+# NOTE: I'm not sure it executes before $OPENSHIFT_REPO_DIR is wiped clean...
 # save existing config.php so it doesn't get overwritten
 cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}
 # check if config.php was saved properly
