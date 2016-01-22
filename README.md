@@ -1,5 +1,5 @@
 # resourcespace
-ResourceSpace 7.4.7249 on OpenShift
+ResourceSpace 7.5.7458 on OpenShift
 
 ## commit procedure
 ```
@@ -15,14 +15,14 @@ git status
 # stage files for commit
 git add ...
 # check for unincorporated changes on bitbucket remote repo
-git pull origin master
+git pull origin dev
 # check for unincorporated changes on openshift remote repo
-git pull openshift master
+git pull openshiftdev master
 # commit the staged files
 git commit -m "[message]"
 # push the new commit to remote repos on bitbucket and openshift
-git push origin master
-git push openshift master
+git push origin dev
+git push openshiftdev master
 ```
 
 ## ResourceSpace
