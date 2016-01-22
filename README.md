@@ -1,6 +1,22 @@
 # resourcespace
 ResourceSpace 7.4.7249 on OpenShift
 
+## commit procedure
+<pre><code># check for file changes
+git status
+# stage files for commit
+git add ...
+# check for unincorporated changes on bitbucket remote repo
+git pull origin master
+# check for unincorporated changes on openshift remote repo
+git pull openshift master
+# commit the staged files
+git commit -m "[message]"
+# push the new commit to remote repos on bitbucket and openshift
+git push origin master
+git push openshift master
+</code></pre>
+
 ## ResourceSpace
 * [ResourceSpace](http://www.resourcespace.org)
 * [Download ResourceSpace](http://resourcespace.org/get)
