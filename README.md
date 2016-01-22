@@ -1,4 +1,4 @@
-# resourcespace
+# resourcespacedev
 ResourceSpace 7.5.7458 on OpenShift
 
 ## commit procedure
