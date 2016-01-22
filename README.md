@@ -2,20 +2,27 @@
 ResourceSpace 7.4.7249 on OpenShift
 
 ## commit procedure
-<pre><code># check for file changes
-git status
-# stage files for commit
-git add ...
-# check for unincorporated changes on bitbucket remote repo
-git pull origin master
-# check for unincorporated changes on openshift remote repo
-git pull openshift master
-# commit the staged files
-git commit -m "[message]"
-# push the new commit to remote repos on bitbucket and openshift
-git push origin master
-git push openshift master
-</code></pre>
+ssh into openshift remote repo
+`rhc ssh resourcespace`
+backup config.php and filestore
+`cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}`
+`cp -R ${OPENSHIFT_REPO_DIR}filestore ${OPENSHIFT_DATA_DIR}`
+exit from openshift ssh
+`exit`
+check for local file changes
+`git status`
+stage files for commit
+`git add ...`
+check for unincorporated changes on bitbucket remote repo
+`git pull origin master`
+check for unincorporated changes on openshift remote repo
+`git pull openshift master`
+commit the staged files
+`git commit -m "[message]"`
+push the new commit to remote repos on bitbucket and openshift
+`git push origin master`
+`git push openshift master`
+
 
 ## ResourceSpace
 * [ResourceSpace](http://www.resourcespace.org)
@@ -29,7 +36,8 @@ git push openshift master
 * [Getting started with OpenShift](https://openshift.redhat.com/app/getting_started)
 
 ## OpenShift file system
-<pre><code>.
+```
+.
 |-- .env
 |-- app-root
 |   |-- data  ($OPENSHIFT_DATA_DIR)
@@ -55,4 +63,4 @@ git push openshift master
 |       |   `-- ... sample hooks
 |       `-- ... other git directories
 `-- ...cartridge directories
-</code></pre>
+```
