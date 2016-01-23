@@ -1,5 +1,6 @@
 # resourcespacedev
 ResourceSpace 7.5.7458 on OpenShift
+[http://resourcespacedev-cscdb.rhcloud.com](http://resourcespacedev-cscdb.rhcloud.com)
 
 ## commit procedure
 ```
