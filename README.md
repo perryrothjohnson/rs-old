@@ -4,7 +4,7 @@ ResourceSpace 7.5.7458 on OpenShift
 ## commit procedure
 ```
 # ssh into openshift remote repo
-rhc ssh resourcespace
+rhc ssh resourcespacedev
 # backup config.php and filestore
 cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}
 cp -R ${OPENSHIFT_REPO_DIR}filestore ${OPENSHIFT_DATA_DIR}
