@@ -1,0 +1,14 @@
+#!/bin/bash
+# backup config.php and filestore to $OPENSHIFT_DATA_DIR every 5 min
+# ref: https://developers.openshift.com/en/managing-background-jobs.html
+if [ ! -f ${OPENSHIFT_DATA_DIR}last_run ]; then
+    touch ${OPENSHIFT_DATA_DIR}last_run
+fi
+if [[ $(find ${OPENSHIFT_DATA_DIR}last_run -mmin +4) ]]; then #run every 5 mins
+    rm -f ${OPENSHIFT_DATA_DIR}last_run
+    touch ${OPENSHIFT_DATA_DIR}last_run
+    # The command(s) that you want to run every 5 minutes
+    cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}
+    cp -R ${OPENSHIFT_REPO_DIR}filestore ${OPENSHIFT_DATA_DIR}
+    date >> ${OPENSHIFT_PHP_LOG_DIR}backup_config_filestore.log
+fi

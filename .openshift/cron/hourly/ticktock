@@ -1,2 +1,0 @@
-#!/bin/bash
-$OPENSHIFT_HOMEDIR/app-root/runtime/repo/batch/cron.php

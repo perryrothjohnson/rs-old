@@ -1,0 +1,7 @@
+#!/bin/bash
+# run scheduled tasks included with ResourceSpace by default
+php ${OPENSHIFT_REPO_DIR}batch/cron.php
+# include 'php' at the beginning of the line above
+# (ref: http://stackoverflow.com/questions/10097609/how-to-run-php-file-using-cron-jobs)
+date >> ${OPENSHIFT_PHP_LOG_DIR}run_resourcespace_cronjob.log
+# write the date string to the file 'run_resourcespace_cronjob.log'

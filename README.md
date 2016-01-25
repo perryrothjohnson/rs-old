@@ -66,6 +66,25 @@ $smtp_password='[password]';
 $use_phpmailer=true;
 ```
 
+### configure cron jobs
+* create a script called _run_resourcespace_cronjob_ in the directory _.openshift/cron/daily_  
+* paste the following code into the script  
+```bash
+#!/bin/bash
+# run scheduled tasks included with ResourceSpace by default
+php ${OPENSHIFT_REPO_DIR}batch/cron.php
+# include 'php' at the beginning of the line above
+# (ref: http://stackoverflow.com/questions/10097609/how-to-run-php-file-using-cron-jobs)
+date >> ${OPENSHIFT_PHP_LOG_DIR}run_resourcespace_cronjob.log
+# write the date string to the file 'run_resourcespace_cronjob.log'
+```
+* make the script executable  
+`chmod +x run_resourcespace_cronjob`
+* add the new script file to the local git repo, then push it up  
+* wait a while, then check if the cron job is running  
+`rhc tail resourcespacedev`  
+refs: [Getting started with CRON jobs](https://blog.openshift.com/getting-started-with-cron-jobs-on-openshift/), [Managing background jobs](https://developers.openshift.com/en/managing-background-jobs.html)
+
 ## OpenShift
 * Create a free [Red Hat Openshift account](https://openshift.redhat.com)
 * [Getting started with OpenShift](https://openshift.redhat.com/app/getting_started)
