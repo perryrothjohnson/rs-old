@@ -40,18 +40,18 @@ in the _Archivist_ user group, add the _e0_ permission so these users can view f
 3. click the checkbox next to _e0_, scroll to the bottom of the page, and click _Save_
 
 ### configure email with SMTP using SendGrid
-1. add SendGrid from the [OpenShift Marketplace](https://marketplace.openshift.com/apps/9628?restoreSearch=true#!overview)  
-2. click _Manage Product_, then click the _Settings_ tab  
-3. set a new password, and note the username assigned to you  
-4. configure ResourceSpace to send emails using SendGrid; ref: [SMTP Relay](https://sendgrid.com/docs/Integrate/index.html#-SMTP-Relay)  
-        ```bash
+* add SendGrid from the [OpenShift Marketplace](https://marketplace.openshift.com/apps/9628?restoreSearch=true#!overview)  
+* click _Manage Product_, then click the _Settings_ tab  
+* set a new password, and note the username assigned to you  
+* configure ResourceSpace to send emails using SendGrid; ref: [SMTP Relay](https://sendgrid.com/docs/Integrate/index.html#-SMTP-Relay)  
+```bash
 # ssh into openshift remote repo
 rhc ssh resourcespace
 # edit the config file
 vim ${OPENSHIFT_REPO_DIR}include/config.php
 ```
-5. add the following lines to the end of _config.php_  
-        ```php
+* add the following lines to the end of _config.php_  
+```php
 # Use an external SMTP server for outgoing emails (e.g. Gmail).
 # http://wiki.resourcespace.org/index.php/Email_using_an_external_SMTP_server
 $use_smtp=true;
