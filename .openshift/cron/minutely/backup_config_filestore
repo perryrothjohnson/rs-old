@@ -1,4 +1,4 @@
-#!/bin/
+#!/bin/bash
 # backup config.php and filestore to $OPENSHIFT_DATA_DIR every 5 min
 # ref: https://developers.openshift.com/en/managing-background-jobs.html
 if [ ! -f ${OPENSHIFT_DATA_DIR}last_run ]; then
