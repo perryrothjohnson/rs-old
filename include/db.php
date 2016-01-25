@@ -18,6 +18,9 @@
 # Functions used for debugging via System Console
 include_once "debug_functions.php";
 
+# Functions used for activity logging
+include_once "log_functions.php";
+
 # Switch on output buffering.
 ob_start(null,4096);
 
@@ -258,7 +261,6 @@ for ($n=count($plugins)-1;$n>=0;$n--)
 	{
 	register_plugin_language($plugins[$n]);
 	}
-
 global $suppress_headers;
 # Set character set.
 if (($pagename!="download") && ($pagename!="graph") && !$suppress_headers) {header("Content-Type: text/html; charset=UTF-8");} // Make sure we're using UTF-8.
@@ -270,7 +272,7 @@ $pagefilter="AND (page = '" . $pagename . "' OR page = 'all' OR page = '' " .  (
 if ($pagename=="admin_content") {$pagefilter="";} # Special case for the team content manager. Pull in all content from all pages so it's all overridden.
 
 $site_text=array();
-$results=sql_query("select language,name,text from site_text where (page='$pagename' or page='all') and (specific_to_group is null or specific_to_group=0)");
+$results=sql_query("select language,name,text from site_text where (page='$pagename' or page='all' or page='') and (specific_to_group is null or specific_to_group=0)");
 for ($n=0;$n<count($results);$n++) {$site_text[$results[$n]["language"] . "-" . $results[$n]["name"]]=$results[$n]["text"];}
 
 $query = sprintf('
@@ -321,16 +323,15 @@ $headerinsert="";
 # Initialise hook for plugins
 hook("initialise");
 
-# Global hook cache and related hits counter
-$hook_cache = array();
-$hook_cache_hits = 0;
-$hook_cache_result = array();
-
 # Load the language specific stemming algorithm, if one exists
 $stemming_file=dirname(__FILE__) . "/../lib/stemming/" . safe_file_name($defaultlanguage) . ".php"; # Important - use the system default language NOT the user selected language, because the stemmer must use the system defaults when indexing for all users.
 if (file_exists($stemming_file)) {include ($stemming_file);}
-	
-function hook($name,$pagename="",$params=array())
+
+# Global hook cache and related hits counter
+$hook_cache = array();
+$hook_cache_hits = 0;
+
+function hook($name,$pagename="",$params=array(),$last_hook_value_wins=false)
 	{
 	# Plugin architecture.  Look for hooks with this name (and corresponding page, if applicable) and run them sequentially.
 	# Utilises a cache for significantly better performance.  
@@ -339,47 +340,63 @@ function hook($name,$pagename="",$params=array())
 	# Allow modifications to the hook itself:
 	if(function_exists("hook_modifier") && !hook_modifier($name, $pagename, $params)) return;
 
-	global $hook_cache, $hook_cache_result;	
-	if ($pagename=="") global $pagename;		
+	global $hook_cache;
+	if($pagename == '')
+		{
+		global $pagename;
+		}
 	
 	# the index name for the $hook_cache
 	$hook_cache_index = $name . "|" . $pagename;
 	
 	# we have already processed this hook name and page combination before so return from cache
-	if (isset($hook_cache[$hook_cache_index])) 
+	if (isset($hook_cache[$hook_cache_index]))
 		{
 		# increment stats
 		global $hook_cache_hits;
-
 		$hook_cache_hits++;
-		$b_return = false;
+
+		unset($GLOBALS['hook_return_value']);
+
+		// we use $GLOBALS['hook_return_value'] so that hooks can directly modify the overall return value
 
 		foreach ($hook_cache[$hook_cache_index] as $function)
 			{
-			$hook_function_return = call_user_func_array($function, $params);
-			if(is_array($hook_function_return) && isset($hook_cache_result[$hook_cache_index]))
+			$function_return_value = call_user_func_array($function, $params);
+
+			if ($function_return_value === null)
 				{
-				// We merge the cached result with the new result from the plugin and remove any duplicates
-				$b_return = array_unique(array_merge_recursive($hook_cache_result[$hook_cache_index], $hook_function_return), SORT_REGULAR);
+				continue;	// the function did not return a value so skip to next hook call
 				}
-			else if(is_string($hook_function_return) && isset($hook_cache_result[$hook_cache_index]))
+
+			if (!$last_hook_value_wins &&
+				isset($GLOBALS['hook_return_value']) &&
+				(gettype($GLOBALS['hook_return_value']) == gettype($function_return_value)) &&
+				(is_array($function_return_value) || is_string($function_return_value) || is_bool($function_return_value)))
 				{
-				$b_return .= $hook_function_return;
+				if (is_array($function_return_value))
+					{
+					// We merge the cached result with the new result from the plugin and remove any duplicates
+					// Note: in custom plugins developers should work with the full array (ie. superset) rather than just a sub-set of the array.
+					//       If your plugin needs to know if the array has been modified previously by other plugins use the global variable "hook_return_value"
+					$GLOBALS['hook_return_value'] = array_unique(array_merge_recursive($GLOBALS['hook_return_value'], $function_return_value), SORT_REGULAR);
+					}
+				elseif (is_string($function_return_value))
+					{
+					$GLOBALS['hook_return_value'] .= $function_return_value;		// appends string
+					}
+				elseif (is_bool($function_return_value))
+					{
+					$GLOBALS['hook_return_value'] = $GLOBALS['hook_return_value'] || $function_return_value;		// boolean OR
+					}
 				}
 			else
 				{
-				$hook_cache_result[$hook_cache_index] = $hook_function_return;
-				if(is_bool($hook_function_return))
-					{
-					$b_return = $b_return || $hook_function_return;
-					}
-				else
-					{
-					$b_return = $hook_function_return;	
-					} 
+				$GLOBALS['hook_return_value'] = $function_return_value;
 				}
 			}
-		return $b_return;
+
+		return (isset($GLOBALS['hook_return_value']) ? $GLOBALS['hook_return_value'] : false);
 		}
 
 	# we have not encountered this hook and page combination before so go add it
@@ -408,10 +425,10 @@ function hook($name,$pagename="",$params=array())
 		}	
 	
 	# add the function list to cache
-	$hook_cache[$hook_cache_index]=$function_list;
-	
+	$hook_cache[$hook_cache_index] = $function_list;
+
 	# do a callback to run the function(s) - this will not cause an infinite loop as we have just added to cache for execution.
-	return hook($name,$pagename,$params);	
+	return hook($name, $pagename, $params, $last_hook_value_wins);
 	}
 
 # Indicate that from now on we want to group together DML statements into one transaction (faster as only one commit at end).
@@ -434,7 +451,7 @@ function db_end_transaction()
 		}
 	}
 
-function sql_query($sql,$cache=false,$fetchrows=-1,$dbstruct=true, $logthis=2)
+function sql_query($sql,$cache=false,$fetchrows=-1,$dbstruct=true, $logthis=2, $reconnect=true)
     {
     # sql_query(sql) - execute a query and return the results as an array.
 	# Database functions are wrapped in this way so supporting a database server other than MySQL is 
@@ -541,6 +558,13 @@ function sql_query($sql,$cache=false,$fetchrows=-1,$dbstruct=true, $logthis=2)
         	{
 			echo "<span class=error>Sorry, but this query contained too many keywords. Please try refining your query by removing any surplus keywords or search parameters.<!--$sql--></span>";        	
         	}
+        elseif (strpos($error,"has gone away")!==false && $reconnect)
+			{
+			# SQL server connection has timed out or been killed. Try to reconnect and run query again.
+			sql_connect();
+			return sql_query($sql,$cache,$fetchrows,$dbstruct,$logthis,false);
+			exit();
+			}
         else
         	{
         	# Check that all database tables and columns exist using the files in the 'dbstruct' folder.
@@ -549,7 +573,7 @@ function sql_query($sql,$cache=false,$fetchrows=-1,$dbstruct=true, $logthis=2)
 				check_db_structs();
         		
         		# Try again (no dbstruct this time to prevent an endless loop)
-        		return sql_query($sql,$cache,$fetchrows,false);
+        		return sql_query($sql,$cache,$fetchrows,false,$reconnect);
         		exit();
         		}
         	
@@ -962,7 +986,7 @@ function nicedate($date,$time=false,$wordy=true)
 	{
 	# format a MySQL ISO date
 	# Always use the 'wordy' style from now on as this works better internationally.
-	global $lang;
+	global $lang,$date_d_m_y;
 	$y = substr($date,0,4);
 	if (($y=="") || ($y=="0000")) return "-";
 	$m = @$lang["months"][substr($date,5,2)-1];
@@ -970,7 +994,13 @@ function nicedate($date,$time=false,$wordy=true)
 	$d = substr($date,8, 2);
 	if ($d=="" || $d=="00") return $m . " " . $y;
 	$t = $time ? (" @ "  . substr($date,11,5)) : "";
-	return $d . " " . $m . " " . substr($y, 2, 2) . $t;
+	if($date_d_m_y)
+		{
+		return $d . " " . $m . " " . substr($y, 2, 2) . $t;
+		}
+	else{
+		return $m . " " . $d . " " . substr($y, 2, 2) . $t;
+		}
 	}	
 }
 
@@ -1101,7 +1131,6 @@ function setLanguage()
 	return 'en';
 	}
 
-
 function checkperm($perm)
     {
     # check that the user has the $perm permission
@@ -1109,7 +1138,30 @@ function checkperm($perm)
     if (!(isset($userpermissions))) {return false;}
     if (in_array($perm,$userpermissions)) {return true;} else {return false;}
     }
-    
+
+// check if passed user is allowed to edit users
+function checkperm_user_edit($user)
+	{
+	if (!checkperm('u'))    // does not have edit user permission
+		{
+		return false;
+		}
+	if (!isset($user['usergroup']))		// allow for passing of user array or user ref to this function.
+		{
+		$user=get_user($user);
+		}
+	$usergroup=$user['usergroup'];
+	if (!checkperm('U') || $usergroup == '')    // no user editing restriction, or is not defined so return true
+		{
+		return true;
+		}
+	global $U_perm_strict;
+	$validgroups = sql_array("SELECT `ref` AS  'value' FROM `usergroup` WHERE " .
+		($U_perm_strict ? "FIND_IN_SET('{$usergroup}',parent)" : "(`ref`='{$usergroup}' OR FIND_IN_SET('{$usergroup}',parent))")
+	);
+	return (in_array($usergroup, $validgroups));
+	}
+
 function pagename()
 	{
 	$name=safe_file_name(getvalescaped('pagename', ''));
@@ -1576,7 +1628,7 @@ function setup_user($userdata)
         $ip_restrict_group=trim($userdata["ip_restrict_group"]);
         $ip_restrict_user=trim($userdata["ip_restrict_user"]);
         
-        if(isset($rs_session))
+        if(isset($rs_session) && !checkperm('b')) // This is only required if anonymous user has collection functionality
 		{
 		if (!function_exists("get_user_collections"))
 			{
@@ -1587,7 +1639,7 @@ function setup_user($userdata)
 		if($anonymous_user_session_collection)
 			{
 			// Just get the first one if more
-			$usercollection=$sessioncollections[0];
+			$usercollection=$sessioncollections[0];		
 			$collection_allow_creation=false; // Hide all links that allow creation of new collections
 			}
 		else

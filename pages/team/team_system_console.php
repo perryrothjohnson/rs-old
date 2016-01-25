@@ -1,16 +1,38 @@
 <?php
 
-include "../../include/db.php";
-include "../../include/general.php";
-include "../../include/authenticate.php"; if (!checkperm("a")) {exit ("Permission denied.");}
+$same_page_callback = basename(__FILE__)==basename($_SERVER['PHP_SELF']);
+$results_per_page = 20;
 
-// ----- Main page load -----
+if ($same_page_callback)
+	{
+	include "../../include/db.php";
+	include "../../include/general.php";
+	include "../../include/authenticate.php";
+	}
 
 $callback = getval("callback","");
+$actasuser = getval("actasuser","");
+$offset = getval("offset",0);
+
+if (!checkperm("a") && $callback!="activitylog")		// currently only activity log is allowed for callback
+	{
+	exit ("Permission denied.");
+	}
+
+if (!checkperm_user_edit($userref))	// if not an admin then force act as user as current user
+	{
+	$actasuser=$userref;
+	}
+
+
+// ----- Main page load -----
 if ($callback == "")
 	{
-	include "../../include/header.php";
-	foreach (array("debuglog","memorycpu","database","sqllogtransactions") as $section)
+	if ($same_page_callback)
+		{
+		include "../../include/header.php";
+		}
+	foreach (array("debuglog","memorycpu","database","sqllogtransactions","activitylog") as $section)
 	{
 		?><script>
 			var timeOutControl<?php echo $section; ?> = null;
@@ -25,7 +47,7 @@ if ($callback == "")
 					extra = "";
 				}
 				jQuery('#SystemConsole<?php echo $section; ?>').load('team_system_console.php?callback=<?php echo $section; ?>&sortby=' + encodeURIComponent(sortBy<?php echo $section;
-				?>) + '&filter=' + encodeURIComponent(filter<?php echo $section; ?>) + extra);
+				?>) + '&actasuser=<?php echo getval('actasuser',''); ?>&filter=' + encodeURIComponent(filter<?php echo $section; ?>) + extra);
 				if (refresh_secs >= 0)
 				{
 					clearTimeout(timeOutControl<?php echo $section; ?>);
@@ -174,8 +196,11 @@ switch ($callback)
 			}
 
 		// ----- start of tail read
-
-		if (isset($debug_log_location) && file_exists($debug_log_location) && is_readable($debug_log_location))
+		if(!isset($debug_log_location))
+			{
+			$debug_log_location = get_debug_log_dir() . "/debug.txt";
+			}
+		if (file_exists($debug_log_location) && is_readable($debug_log_location))
 			{
 			$data = tail($debug_log_location,1000);
 			$lines = array();
@@ -360,31 +385,136 @@ switch ($callback)
 
 		break;
 
+	case "activitylog":
+		{
+
+		// decode using the enumerated
+		$when_statements  = "";
+		foreach (array_values(LOG_CODE_get_all()) as $value)
+			{
+			if (!isset($lang['log_code_' . $value]))
+				{
+				continue;
+				}
+			$when_statements .= " WHEN ASCII('" . escape_check($value) . "') THEN '" . escape_check($lang['log_code_' . $value]) . "'";
+			}
+
+		$results = sql_query("
+
+		 SELECT
+			`activity_log`.`logged` AS '{$lang['fieldtype-date_and_time']}',
+			`user`.`username` AS '{$lang['user']}',
+			CASE ASCII(`activity_log`.`log_code`) $when_statements ELSE `activity_log`.`log_code` END AS '{$lang['property-operation']}',
+			`activity_log`.`note` AS '{$lang['fieldtitle-notes']}',
+			null AS '{$lang['property-resource-field']}',
+			`activity_log`.`value_old` AS '{$lang['property-old_value']}',
+			`activity_log`.`value_new` AS '{$lang['property-new_value']}',
+			if(`activity_log`.`value_diff`='','',concat('<pre>',`activity_log`.`value_diff`,'</pre>')) AS '{$lang['difference']}',
+			`activity_log`.`remote_table`AS '{$lang['property-table']}',
+			`activity_log`.`remote_column` AS '{$lang['property-column']}',
+			`activity_log`.`remote_ref` AS '{$lang['property-table_reference']}'
+		FROM
+			`activity_log`
+		LEFT OUTER JOIN `user`
+		ON `activity_log`.`user`=`user`.`ref`
+		WHERE
+			" . ($actasuser == "" ? "" : "`activity_log`.`user`='{$actasuser}' AND " ) . "
+			(`activity_log`.`ref` LIKE '%{$filter}%' OR
+			`activity_log`.`logged` LIKE '%{$filter}%' OR
+			`user`.`username` LIKE '%{$filter}%' OR
+			`activity_log`.`note` LIKE '%{$filter}%' OR
+			`activity_log`.`value_old` LIKE '%{$filter}%' OR
+			`activity_log`.`value_new` LIKE '%{$filter}%' OR
+			`activity_log`.`value_diff` LIKE '%{$filter}%' OR
+			`activity_log`.`remote_table` LIKE '%{$filter}%' OR
+			`activity_log`.`remote_column` LIKE '%{$filter}%' OR
+			`activity_log`.`remote_ref` LIKE '%{$filter}%' OR
+			(CASE ASCII(`activity_log`.`log_code`) $when_statements ELSE `activity_log`.`log_code` END) LIKE '%{$filter}%')
+
+		UNION
+
+		SELECT
+			`resource_log`.`date` AS '{$lang['fieldtype-date_and_time']}',
+			`user`.`username` AS '{$lang['user']}',
+			CASE ASCII(`resource_log`.`type`) $when_statements ELSE `resource_log`.`type` END AS '{$lang['property-operation']}',
+			`resource_log`.`notes` AS '{$lang['fieldtitle-notes']}',
+			`resource_type_field`.`title` AS '{$lang['property-resource-field']}',
+			`resource_log`.`previous_value` AS '{$lang['property-old_value']}',
+			'' AS '{$lang['property-new_value']}',
+			if(`resource_log`.`diff`='','',concat('<pre>',`resource_log`.`diff`,'</pre>')) AS '{$lang['difference']}',
+			'resource' AS '{$lang['property-table']}',
+			'ref' AS '{$lang['property-column']}',
+			`resource_log`.`resource` AS '{$lang['property-table_reference']}'
+		FROM
+			`resource_log`
+		LEFT OUTER JOIN `user`
+			ON `resource_log`.`user`=`user`.`ref`
+		LEFT OUTER JOIN `resource_type_field`
+			ON `resource_log`.`resource_type_field`=`resource_type_field`.`ref`
+
+		WHERE
+			" . ($actasuser == "" ? "" : "`resource_log`.`user`='{$actasuser}' AND " ) . "
+			(`resource_log`.`ref` LIKE '%{$filter}%' OR
+			`resource_log`.`date` LIKE '%{$filter}%' OR
+			`user`.`username` LIKE '%{$filter}%' OR
+			`resource_log`.`notes` LIKE '%{$filter}%' OR
+			`resource_log`.`previous_value` LIKE '%{$filter}%' OR
+			'resource' LIKE '%{$filter}%' OR
+			'ref' LIKE '%{$filter}%' OR
+			`resource_log`.`resource` LIKE '%{$filter}%' OR
+			(CASE ASCII(`resource_log`.`type`)
+				$when_statements
+				ELSE `resource_log`.`type`
+			END) LIKE '%{$filter}%')
+
+			ORDER BY 1 DESC
+
+
+
+			LIMIT 40
+			OFFSET " . ($offset * $results_per_page)
+
+		);
+		break;
+
+		}
+
 	}		// end of callback switch
 
-?>
-<br />
-<input type="text" class="stdwidth" placeholder="<?php echo $lang["filterbutton"]; ?>" value="<?php echo $filter; ?>"
-	onblur="SystemConsole<?php echo $callback; ?>Stop();"
-	onkeyup="if(this.value=='')
-	{
-	   jQuery('#filterbutton<?php echo $callback; ?>').attr('disabled','disabled');
-	   jQuery('#clearbutton<?php echo $callback; ?>').attr('disabled','disabled')
-	} else {
-		jQuery('#filterbutton<?php echo $callback; ?>').removeAttr('disabled');
-		jQuery('#clearbutton<?php echo $callback; ?>').removeAttr('disabled')
-	}
-	filter<?php echo $callback; ?>=this.value;
-	var e = event;
-	if (e.keyCode === 13)
-	{
-		SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);
-	}" ></input>
+	if($same_page_callback)	// do not display any filters if page being directly included
+		{
 
-<input id="filterbutton<?php echo $callback; ?>" <?php if($filter=="") { ?>disabled="disabled" <?php } ?>type="button" onclick="SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);" value="<?php echo $lang['filterbutton']; ?>"></input>
-<input id="clearbutton<?php echo $callback; ?>" <?php if($filter=="") { ?>disabled="disabled" <?php } ?>type="button" onclick="filter<?php echo $callback; ?>=''; SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);" value="<?php echo $lang["clearbutton"]; ?>"></input>
+		?>
+			<br/>
+			<input type="text" class="stdwidth" placeholder="<?php echo $lang["filterbutton"]; ?>"
+				   value="<?php echo $filter; ?>"
+				   onblur="SystemConsole<?php echo $callback; ?>Stop();"
+				   onkeyup="if(this.value=='')
+					   {
+					   jQuery('#filterbutton<?php echo $callback; ?>').attr('disabled','disabled');
+					   jQuery('#clearbutton<?php echo $callback; ?>').attr('disabled','disabled')
+					   } else {
+					   jQuery('#filterbutton<?php echo $callback; ?>').removeAttr('disabled');
+					   jQuery('#clearbutton<?php echo $callback; ?>').removeAttr('disabled')
+					   }
+					   filter<?php echo $callback; ?>=this.value;
+					   var e = event;
+					   if (e.keyCode === 13)
+					   {
+					   SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);
+					   }"></input>
 
-<?php
+			<input id="filterbutton<?php echo $callback; ?>" <?php if ($filter == "") { ?>disabled="disabled"
+				   <?php } ?>type="button"
+				   onclick="SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);"
+				   value="<?php echo $lang['filterbutton']; ?>"></input>
+			<input id="clearbutton<?php echo $callback; ?>" <?php if ($filter == "") { ?>disabled="disabled"
+				   <?php } ?>type="button"
+				   onclick="filter<?php echo $callback; ?>=''; SystemConsole<?php echo $callback; ?>Load(refreshSecs<?php echo $callback; ?>);"
+				   value="<?php echo $lang["clearbutton"]; ?>"></input>
+
+		<?php
+		}
 
 if (count($results)==0)
 	{
@@ -411,7 +541,21 @@ if (!$sorted && $sortby)
 		});
 	}
 ?><div class="Listview">
-	<strong><?php echo $lang['total']; ?>: <?php echo count($results); ?></strong>
+	<?php
+	if ($same_page_callback)
+		{
+	?><strong><?php
+		if ($callback=='activitylog' && count($results) > $results_per_page)
+			{
+			echo $lang['lastmatching'] . ': ' . $results_per_page;
+			}
+		else
+			{
+			echo $lang['total'] . ': ' . count($results);
+			}
+		?></strong><?php
+		}
+	?>
 	<table border="0" cellspacing="0" cellpadding="0" class="ListviewStyle">
 		<tbody>
 			<tr class="ListviewTitleStyle">
@@ -451,15 +595,36 @@ if (!$sorted && $sortby)
 		</tbody>
 		<tbody id="resource_type_field_table_body" class="ui-sortable">
 			<?php			
-			for ($i=0; $i<count($results) && $i<20; $i++)
+			for ($i=0; $i<count($results) && $i<$results_per_page; $i++)
 				{				
 				?>
 				<tr class="resource_type_field_row">
 					<?php
-					foreach ($results[$i] as $cell)
-					{
-						?><td><?php echo str_highlight(htmlspecialchars($cell),$filter); ?></td><?php
-					}
+					foreach ($results[$i] as $key=>$cell)
+						{
+						?><td><?php
+
+							$close_anchor=false;
+							if(
+								$key==$lang['property-table_reference'] &&
+								isset($results[$i][$lang['property-table']]) &&
+								$results[$i][$lang['property-table']]=='resource' &&
+								isset($results[$i][$lang['property-column']]) &&
+								$results[$i][$lang['property-column']]=='ref' &&
+								$cell!='' &&
+								$cell > 0
+							)
+								{
+								?><a href="<?php echo $baseurl; ?>/pages/view.php?ref=<?php echo $cell; ?>" onclick="return ModalLoad(this,true);"><?php
+								$close_anchor=true;
+								}
+							echo str_highlight(preg_replace('/&lt;(\/*)pre&gt;/i','<$1pre>',htmlspecialchars($cell)),$filter);
+							if ($close_anchor)
+								{
+								?></a><?php
+								}
+						?></td><?php
+						}
 					?>
 					<?php
 					if (count($actions) > 0)

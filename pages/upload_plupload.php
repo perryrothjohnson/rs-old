@@ -6,9 +6,6 @@ include "../include/image_processing.php";
 include "../include/resource_functions.php";
 include_once "../include/collections_functions.php";
 
-
-
-		
 $overquota=overquota();
 $status="";
 $resource_type=getvalescaped("resource_type","");
@@ -19,65 +16,13 @@ $offset=getvalescaped("offset","",true);
 $order_by=getvalescaped("order_by","");
 $archive=getvalescaped("archive","",true);
 $setarchivestate=getvalescaped("status","",true);
-
-# Load the configuration for the selected resource type. Allows for alternative notification addresses, etc.
-resource_type_config_override($resource_type);
-
-$uploadparams="";
-$uploadparams.="&relateto=" . urlencode(getval("relateto",""));
-$uploadparams.="&filename_field=" . urlencode(getval("filename_field",""));
-
-global $merge_filename_with_title;
-if($merge_filename_with_title) {
-
-    $merge_filename_with_title_option = urlencode(getval('merge_filename_with_title_option', ''));
-    $merge_filename_with_title_include_extensions = urlencode(getval('merge_filename_with_title_include_extensions', ''));
-    $merge_filename_with_title_spacer = urlencode(getval('merge_filename_with_title_spacer', ''));
-    
-    if($merge_filename_with_title_option != '') {
-        $uploadparams .= '&merge_filename_with_title_option=' . $merge_filename_with_title_option;
-    }
-    
-    if($merge_filename_with_title_include_extensions != '') {
-        $uploadparams .= '&merge_filename_with_title_include_extensions=' . $merge_filename_with_title_include_extensions;
-    }
-
-    if($merge_filename_with_title_spacer != '') {
-        $uploadparams .= '&merge_filename_with_title_spacer=' . $merge_filename_with_title_spacer;
-    }
-
-}
-
-if($embedded_data_user_select || isset($embedded_data_user_select_fields))	
-		{
-		foreach($_GET as $getname=>$getval)
-			{
-			if (strpos($getname,"exif_option_")!==false)
-				{
-				$uploadparams.="&" . urlencode($getname) . "=" . urlencode($getval);	
-				}
-			}
-                if(getval("exif_override","")!="")
-			{
-			$uploadparams.="&exif_override=true";
-			}
-		}
-$redirecturl = getval("redirecturl","");
-if(strpos($redirecturl, $baseurl)!==0 && !hook("modifyredirecturl")){$redirecturl="";}
-
-$default_sort="DESC";
-if (substr($order_by,0,5)=="field"){$default_sort="ASC";}
-$sort=getval("sort",$default_sort);
-
-$allowed_extensions="";
-if ($resource_type!="") {$allowed_extensions=get_allowed_extensions_by_type($resource_type);}
-
 $alternative = getvalescaped("alternative",""); # Batch upload alternative files
 $replace = getvalescaped("replace",""); # Replace Resource Batch
-
 $replace_resource=getvalescaped("replace_resource",""); # Option to replace existing resource file
 if($replace_resource && !get_edit_access($replace_resource)){$replace_resource=false;}
 
+# Load the configuration for the selected resource type. Allows for alternative notification addresses, etc.
+resource_type_config_override($resource_type);
 
 # Create a new collection?
 if ($collection_add==-1)
@@ -95,6 +40,71 @@ if ($collection_add==-1)
 		collection_set_themes($collection_add,$themearr);
 		}
 	}
+	
+	
+$uploadparams= array(
+						"replace"=>$replace,
+						"alternative"=>$alternative,
+						"collection_add"=>$collection_add,
+						"resource_type"=>$resource_type,
+						"no_exif"=>getval("no_exif",""),
+						"autorotate"=>getval("autorotate",""),
+						"replace_resource"=>$replace_resource,
+						"archive"=>$archive,
+						"relateto"=>getval("relateto",""),
+						"filename_field"=>getval("filename_field","")
+					);
+
+
+global $merge_filename_with_title;
+if($merge_filename_with_title) {
+
+    $merge_filename_with_title_option = urlencode(getval('merge_filename_with_title_option', ''));
+    $merge_filename_with_title_include_extensions = urlencode(getval('merge_filename_with_title_include_extensions', ''));
+    $merge_filename_with_title_spacer = urlencode(getval('merge_filename_with_title_spacer', ''));
+    
+    if($merge_filename_with_title_option != '') {
+        $uploadparams['merge_filename_with_title_option'] =  $merge_filename_with_title_option;
+    }
+    
+    if($merge_filename_with_title_include_extensions != '') {
+        $uploadparams['merge_filename_with_title_include_extensions']=$merge_filename_with_title_include_extensions;
+    }
+
+    if($merge_filename_with_title_spacer != '') {
+        $uploadparams['merge_filename_with_title_spacer']= $merge_filename_with_title_spacer;
+    }
+
+}
+
+if($embedded_data_user_select || isset($embedded_data_user_select_fields))	
+		{
+		foreach($_GET as $getname=>$getval)
+			{
+			if (strpos($getname,"exif_option_")!==false)
+				{
+				$uploadparams[urlencode($getname)] = $getval;	
+				}
+			}
+                if(getval("exif_override","")!="")
+			{
+			$uploadparams['exif_override']=true;
+			}
+		}
+				
+$uploadurl=generateURL($baseurl . "/pages/upload_plupload.php",$uploadparams) . hook('addtopluploadurl');
+
+$redirecturl = getval("redirecturl","");
+if(strpos($redirecturl, $baseurl)!==0 && !hook("modifyredirecturl")){$redirecturl="";}
+
+$default_sort="DESC";
+if (substr($order_by,0,5)=="field"){$default_sort="ASC";}
+$sort=getval("sort",$default_sort);
+
+$allowed_extensions="";
+if ($resource_type!="") {$allowed_extensions=get_allowed_extensions_by_type($resource_type);}
+
+
 if ($collection_add!="")
 	{
 	# Switch to the selected collection (existing or newly created) and refresh the frame.
@@ -193,9 +203,10 @@ if ($_FILES)
 	// usleep(5000);
 
 	// Get parameters
-	$chunk = isset($_REQUEST["chunk"]) ? intval($_REQUEST["chunk"]) : 0;
-	$chunks = isset($_REQUEST["chunks"]) ? intval($_REQUEST["chunks"]) : 0;
-	$plfilename = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
+	$chunk       = isset($_REQUEST["chunk"]) ? intval($_REQUEST["chunk"]) : 0;
+	$chunks      = isset($_REQUEST["chunks"]) ? intval($_REQUEST["chunks"]) : 0;
+	$plfilename  = isset($_REQUEST["name"]) ? $_REQUEST["name"] : '';
+    $queue_index = isset($_REQUEST['queue_index']) ? intval($_REQUEST['queue_index']) : 0;
         
         debug("PLUPLOAD - receiving file from user " . $username . ",  filename " . $plfilename . ", chunk " . $chunk . " of " . $chunks);
         
@@ -237,9 +248,6 @@ if ($_FILES)
             @mkdir($targetDir,0777,true);
             }
 
-	
-
-
 	// Remove old temp files	
 	if ($cleanupTargetDir && is_dir($targetDir) && ($dir = opendir($targetDir)))
             {
@@ -259,7 +267,21 @@ if ($_FILES)
             debug("PLUPLOAD - failed to open temporary folder " . $targetDir . " for file received from user " . $username . ",  filename " . $plfilename . ", chunk " . ($chunk+1)  . " of " . $chunks);       		
             die('{"jsonrpc" : "2.0", "error" : {"code": 100, "message": "Failed to open temp directory."}, "id" : "id"}');
             }
-		
+
+    // Check the chunk and file have not been processed before for this filename
+    $pluplpoad_processed_filepath = $targetDir . DIRECTORY_SEPARATOR . 'processing_' . $plfilename . '.txt';
+    if($plupload_allow_duplicates_in_a_row && file_exists($pluplpoad_processed_filepath))
+        {
+        // Get current chunk, queue index and filename so we can know if we processed it before or not
+        $processed_file_content = file_get_contents($pluplpoad_processed_filepath);
+        $processed_file_content = explode(',', $processed_file_content);
+
+        // If this chunk-file-filename has been processed, don't process it again
+        if($chunk == $processed_file_content[0] && $queue_index == $processed_file_content[1])
+            {
+            die('Duplicate chunk [' . $chunk . '] of file "' . $plfilename . '" found at index [' . $queue_index . '] in the upload queue');
+            }
+        }
 
 	// Look for the content type header
 	if (isset($_SERVER["HTTP_CONTENT_TYPE"]))
@@ -290,6 +312,15 @@ if ($_FILES)
                         fclose($in);
                         fclose($out);
                         @unlink($_FILES['file']['tmp_name']);
+
+                        if($plupload_allow_duplicates_in_a_row)
+                            {
+                            // Write in the processed file
+                            $processed_file_handle = fopen($pluplpoad_processed_filepath, 'w');
+                            $processed_file_new_content = $chunk . ',' . $queue_index;
+                            fwrite($processed_file_handle, $processed_file_new_content);
+                            fclose($processed_file_handle);
+                            }
                         }
                     else
                         {
@@ -320,6 +351,15 @@ if ($_FILES)
 
                     fclose($in);
                     fclose($out);
+
+                    if($plupload_allow_duplicates_in_a_row)
+                        {
+                        // Write in the processed file
+                        $processed_file_handle = fopen($pluplpoad_processed_filepath, 'w');
+                        $processed_file_new_content = $chunk . ',' . $queue_index;
+                        fwrite($processed_file_handle, $processed_file_new_content);
+                        fclose($processed_file_handle);
+                        }
                     }
                 else
                     {
@@ -335,10 +375,9 @@ if ($_FILES)
 
             // Strip the temp .part suffix off 
             rename("{$plfilepath}.part", $plfilepath);
-    
-    
+
             # Additional ResourceSpace upload code
-            
+
             $plupload_upload_location=$plfilepath;
             if(!hook("initialuploadprocessing"))
                     {			
@@ -378,7 +417,7 @@ if ($_FILES)
 							if($notify_on_resource_change_days!=0)
 								{								
 								// we don't need to wait for this..
-								ob_flush();flush();	
+								ob_flush();flush();
 								notify_resource_change($replace_resource);
 								}
 								
@@ -456,8 +495,9 @@ if ($_FILES)
 									if($notify_on_resource_change_days!=0)
 										{								
 										// we don't need to wait for this..
-										ob_flush();flush();	
-										notify_resource_change($replace_resource);
+										ob_flush();flush();
+										
+										notify_resource_change($target_resource[0]);
 										}
 									exit();
 									}
@@ -548,7 +588,8 @@ if($store_uploadedrefs ||($relate_on_upload && $enable_related_resources && getv
 var pluploadconfig = {
         // General settings
         runtimes : '<?php echo $plupload_runtimes ?>',
-        url: '<?php echo $baseurl_short?>pages/upload_plupload.php?replace=<?php echo urlencode($replace) ?>&alternative=<?php echo urlencode($alternative) ?>&collection_add=<?php echo urlencode($collection_add)?>&resource_type=<?php echo urlencode($resource_type)?>&no_exif=<?php echo urlencode(getval("no_exif",""))?>&autorotate=<?php echo urlencode(getval("autorotate",""))?>&replace_resource=<?php echo urlencode($replace_resource)?>&archive=<?php echo urlencode($archive) . $uploadparams ?><?php hook('addtopluploadurl')?>',
+        url: '<?php echo $uploadurl; ?>',
+        starting_url: '<?php echo $uploadurl; ?>',
          <?php if ($plupload_chunk_size!="")
                 {?>
                 chunk_size: '<?php echo $plupload_chunk_size; ?>',
@@ -617,8 +658,15 @@ var pluploadconfig = {
                                 // show any errors
                                 if (info.response.indexOf("error") > 0)
                                         {
-                                        uploadError = JSON.parse(info.response);
-                                        uploaderrormessage= uploadError.error.code + " " + uploadError.error.message;
+                                        try
+                                            {
+                                            uploadError = JSON.parse(info.response);
+                                            uploaderrormessage= uploadError.error.code + " " + uploadError.error.message;
+                                            }
+                                        catch(e)
+                                            {
+                                            uploaderrormessage = 'Server side error! Please contact the administrator!';
+                                            }
                                         file.status = plupload.FAILED;
                                         if(show_upload_log)
                                             {
@@ -649,21 +697,27 @@ var pluploadconfig = {
                 
                         //add flag so that upload_plupload.php can tell if this is the last file.
                         uploader.bind('BeforeUpload', function(up, files) {
-                                if( (uploader.total.uploaded) == uploader.files.length-1)
-                                    {
-                                    uploader.settings.url = uploader.settings.url + '&lastqueued=true';
-                                    }
-                
+                            var pluploader_new_url = uploader.settings.starting_url;
+
+                            // Add index of file in queue so we can know which file is being processed
+                            pluploader_new_url += '&queue_index=' + uploader.total.uploaded;
+
+                            if(uploader.total.uploaded == uploader.files.length-1)
+                                {
+                                pluploader_new_url += '&lastqueued=true';
+                                }
+
+                            uploader.settings.url = pluploader_new_url;
                         });
                     
                 
                         //Change URL if exif box status changes
                         jQuery('#no_exif').live('change', function(){
                                 if(jQuery(this).is(':checked')){
-                                        uploader.settings.url ='<?php echo $baseurl_short?>pages/upload_plupload.php?replace=<?php echo urlencode($replace) ?>&alternative=<?php echo urlencode($alternative) ?>&collection_add=<?php echo urlencode($collection_add)?>&resource_type=<?php echo urlencode($resource_type)?>&autorotate=<?php echo urlencode(getval("autorotate",""))?>&replace_resource=<?php echo urlencode($replace_resource)?>&no_exif=yes<?php hook('addtopluploadurl')?>';
+                                        uploader.settings.starting_url =ReplaceUrlParameter(uploader.settings.starting_url,'no_exif','yes');
                                 }
                                 else {
-                                        uploader.settings.url ='<?php echo $baseurl_short?>pages/upload_plupload.php?replace=<?php echo urlencode($replace) ?>&alternative=<?php echo urlencode($alternative) ?>&collection_add=<?php echo urlencode($collection_add)?>&resource_type=<?php echo urlencode($resource_type)?>&autorotate=<?php echo urlencode(getval("autorotate",""))?>&replace_resource=<?php echo urlencode($replace_resource)?>&no_exif=<?php hook('addtopluploadurl')?>';
+                                       uploader.settings.starting_url =ReplaceUrlParameter(uploader.settings.starting_url,'no_exif','');
                                 }
                         });
                 

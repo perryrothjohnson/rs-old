@@ -8,7 +8,7 @@ then
     # install ffmpeg
     wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz
     tar -xvf ffmpeg-release-64bit-static.tar.xz
-    cd ffmpeg-2.8.1-64bit-static
+    cd ffmpeg-2.8.5-64bit-static
     cp ffmpeg $OPENSHIFT_DATA_DIR/bin
 else
     # skip ahead, ffmpeg is already installed

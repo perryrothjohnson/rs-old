@@ -47,7 +47,7 @@ $all_field_info=get_fields_for_search_display(array_unique(array_merge($sort_fie
 # get display and normalize display specific variables
 $display=getvalescaped("display",$default_display);setcookie("display",$display, 0, '', '', false, true);
 
-if ($display=="thumbs"){ 
+if ($display=="thumbs" || $display=="stripes"){ 
 	$display_fields	= $thumbs_display_fields;  
 	if (isset($search_result_title_height)) { $result_title_height = $search_result_title_height; }
 	$results_title_trim = $search_results_title_trim;
@@ -624,6 +624,13 @@ if (isset($result_title_height))
 	}
 
 #if (is_array($result)||(isset($collections)&&(count($collections)>0)))
+
+if(!$search_titles && isset($theme_link))
+	{
+	// Show the themes breadcrumbs if they exist, but not if we are using the search_titles
+	echo "<div class='SearchBreadcrumbs'>" . $theme_link . '&nbsp;&gt;&nbsp;<span id="coltitle'.$collection.'"><a  href="'.$baseurl_short.'pages/search.php?search=!collection' . $collection . '" onClick="return CentralSpaceLoad(this,true);">'.i18n_get_collection_name($collectiondata). '</a></span>' . "</div>" ;
+	}
+
 if (true) # Always show search header now.
 	{
 	$url=$baseurl_short."pages/search.php?search=" . urlencode($search) . "&amp;order_by=" . urlencode($order_by) . "&amp;sort=".urlencode($sort)."&amp;offset=" . urlencode($offset) . "&amp;archive=" . urlencode($archive)."&amp;sort=".urlencode($sort) . "&amp;restypes=" . urlencode($restypes);
@@ -658,7 +665,7 @@ if (true) # Always show search header now.
 		<?php if ($xlthumbs==true) { ?><option <?php if ($display=="xlthumbs"){?>selected="selected"<?php } ?> value="<?php echo $url?>&amp;display=xlthumbs&amp;k=<?php echo urlencode($k) ?>"><?php echo $lang["xlthumbs"]?></option><?php } ?>
 		<option <?php if ($display=="thumbs"){?>selected="selected"<?php } ?> value="<?php echo $url?>&amp;display=thumbs&amp;k=<?php echo urlencode($k) ?>"><?php echo $lang["largethumbs"]?></option>
 		<?php if ($smallthumbs==true) { ?><option <?php if ($display=="smallthumbs"){?>selected="selected"<?php } ?> value="<?php echo $url?>&amp;display=smallthumbs&amp;k=<?php echo urlencode($k) ?>"><?php echo $lang["smallthumbs"]?></option><?php } ?>
-		<option <?php if ($display=="list"){?>selected="selected"<?php } ?> value="<?php echo $url?>&amp;display=list&amp;k=<?php echo urlencode($k) ?>"><?php echo $lang["list"]?></option>
+		<?php if ($searchlist==true) { ?><option <?php if ($display=="list"){?>selected="selected"<?php } ?> value="<?php echo $url?>&amp;display=list&amp;k=<?php echo urlencode($k) ?>"><?php echo $lang["list"]?></option><?php } ?>
 		</select>&nbsp;
 		<?php
 		}
@@ -716,20 +723,22 @@ if (true) # Always show search header now.
 				<?php
 				}
 			}
-
-		if($display == 'list')
+		if ($searchlist == true) 
 			{
-			?>
-			<span class="smalllisticonactive">&nbsp;</span>
-			<?php
-			}
-		else
-			{
-			?>
-			<a href="<?php echo $url?>&amp;display=list&amp;k=<?php echo urlencode($k) ?>" title='<?php echo $lang["listtitle"] ?>' onClick="return CentralSpaceLoad(this);">
-				<span class="smalllisticon">&nbsp;</span>
-			</a>
-			<?php
+			if($display == 'list')
+				{
+				?>
+				<span class="smalllisticonactive">&nbsp;</span>
+				<?php
+				}
+			else
+				{
+				?>
+				<a href="<?php echo $url?>&amp;display=list&amp;k=<?php echo urlencode($k) ?>" title='<?php echo $lang["listtitle"] ?>' onClick="return CentralSpaceLoad(this);">
+					<span class="smalllisticon">&nbsp;</span>
+				</a>
+				<?php
+				}
 			}
 
 			hook('adddisplaymode');
@@ -760,7 +769,7 @@ if (true) # Always show search header now.
 	
 	# order by
 	#if (strpos($search,"!")===false)
-	if ($search!="!duplicates" && $search!="!unused") # Ordering enabled for collections/themes too now at the request of N Ward / Oxfam
+	if ($search!="!duplicates" && $search!="!unused" && !hook("replacesearchsortorder")) # Ordering enabled for collections/themes too now at the request of N Ward / Oxfam
 		{
 		$rel=$lang["relevance"];
 		if(!hook("replaceasadded"))
@@ -881,7 +890,8 @@ if (true) # Always show search header now.
 	</div>
 	<div class="clearerleft"></div>
 	</div>
-        <?php 
+	<?php
+} 
 		hook("stickysearchresults");
 
 	if ($search_titles)
@@ -891,6 +901,7 @@ if (true) # Always show search header now.
 		hook("aftersearchtitle");
 		hook("beforecollectiontoolscolumn");
 		}
+	
 	hook("beforesearchresults");
 	
 	# Archive link
@@ -1095,6 +1106,12 @@ if (true) # Always show search header now.
                 include "search_views/list.php";
                 }
 
+            if ($display=="stripes")
+                {
+                # ----------------  Stripes view -------------------
+                include "search_views/stripes.php";
+                }
+		
             hook("customdisplaymode");
 
             }
@@ -1128,7 +1145,6 @@ if (true) # Always show search header now.
                 }
             } /* end hook replacesearchkey */
         }        
-    }
 $url=$baseurl_short."pages/search.php?search=" . urlencode($search) . "&amp;order_by=" . urlencode($order_by) . "&amp;sort=" . urlencode($sort) . "&amp;archive=" . urlencode($archive) . "&amp;daylimit=" . urlencode($daylimit) . "&amp;k=" . urlencode($k) . "&amp;restypes=" . urlencode($restypes);	
 ?>
 </div> <!-- end of CentralSpaceResources -->

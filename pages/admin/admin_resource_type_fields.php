@@ -51,6 +51,7 @@ if (getval("newfield","")!="")
 	$newfieldrestype=getvalescaped("newfieldrestype",0,true);
 	sql_query("insert into resource_type_field (title,resource_type) values('" . getvalescaped("newfield","") . "','$newfieldrestype')");
 	$new=sql_insert_id();
+	log_activity(null,LOG_CODE_CREATED,getvalescaped("newfield",""),'resource_type_field','title',$new,null,'');
 	redirect($baseurl_short . 'pages/admin/admin_resource_type_field_edit.php?ref=' . $new);
 	}
 	
@@ -102,23 +103,6 @@ $arr_restypes[0]=$lang["resourcetype-global_field"];
 $arr_restypes[999]=$lang["resourcetype-archive_only"];
 
 $results=count($fields);
-
-// Define array of field type values with associated description
-$field_types=array(
-	0=>$lang["fieldtype-text_box_single_line"],
-	1=>$lang["fieldtype-text_box_multi-line"],
-	2=>$lang["fieldtype-check_box_list"],
-	3=>$lang["fieldtype-drop_down_list"],
-	4=>$lang["fieldtype-date_and_optional_time"],
-	5=>$lang["fieldtype-text_box_large_multi-line"],
-	6=>$lang["fieldtype-expiry_date"],
-	7=>$lang["fieldtype-category_tree"],
-	8=>$lang["fieldtype-text_box_formatted_and_ckeditor"],
-	9=>$lang["fieldtype-dynamic_keywords_list"],
-	10=>$lang["fieldtype-date"],
-	11=>$lang["fieldtype-dynamic_tree_in_development"],
-	12=>$lang["fieldtype-radio_buttons"]
-	);
 
 ?>
 
@@ -220,7 +204,7 @@ for ($n=0;$n<count($fields);$n++)
 			<?php echo str_highlight($fields[$n]["name"],$find,STR_HIGHLIGHT_SIMPLE);?>
 		</td>	
 		<td>		
-			<?php echo ($fields[$n]["type"]!="")?$field_types[$fields[$n]["type"]]:$field_types[0];  // if no value it is treated as type 0 (single line text) ?>
+			<?php echo ($fields[$n]["type"]!="")?$lang[$field_types[$fields[$n]["type"]]]:$lang[$field_types[0]];  // if no value it is treated as type 0 (single line text) ?>
 		</td>
 		<td>		
 			<?php echo str_highlight(i18n_get_translated($fields[$n]["tab_name"]),$find,STR_HIGHLIGHT_SIMPLE);?>
@@ -341,6 +325,7 @@ function enableFieldsort(){
 			  axis: "y",
 			  cursor: 'move',
 			  opacity: 0.6, 
+			  distance: 5,
 			  stop: function(event, ui) {
 				  <?php
 				  if($allow_reorder)

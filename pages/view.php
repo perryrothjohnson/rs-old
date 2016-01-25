@@ -98,20 +98,14 @@ if($comments_resource_enable && $comments_view_panel_show_marker){
 	$resource_comments=sql_value("select count(*) value from comment where resource_ref=$ref","0");
 }
 
-// get mp3 paths if necessary and set $use_mp3_player switch
-if (!(isset($resource['is_transcoding']) && $resource['is_transcoding']==1) && (in_array($resource["file_extension"],$ffmpeg_audio_extensions) || $resource["file_extension"]=="mp3") && $mp3_player){
-		$use_mp3_player=true;
-	} 
-	else {
-		$use_mp3_player=false;
-	}
-if ($use_mp3_player){
+// Set $use_mp3_player switch if appropriate
+$use_mp3_player = (!(isset($resource['is_transcoding']) && $resource['is_transcoding']==1) && ((in_array($resource["file_extension"],$ffmpeg_audio_extensions) || $resource["file_extension"]=="mp3") && $mp3_player));
+if ($use_mp3_player)
+	{
 	$mp3realpath=get_resource_path($ref,true,"",false,"mp3");
-	if (file_exists($mp3realpath)){
-		$mp3path=get_resource_path($ref,false,"",false,"mp3");
+	if (file_exists($mp3realpath))
+		{$mp3path=get_resource_path($ref,false,"",false,"mp3");}
 	}
-}	
-
 # Load access level
 $access=get_resource_access($ref);
 hook("beforepermissionscheck");
@@ -329,9 +323,10 @@ function check_view_display_condition($fields,$n)
 	
 function display_field_data($field,$valueonly=false,$fixedwidth=452)
 	{
+		
 	global $ref, $show_expiry_warning, $access, $search, $extra, $lang;
 	$value=$field["value"];
-
+			
 	$modified_field=hook("beforeviewdisplayfielddata_processing","",array($field));
 	if($modified_field){
 		$field=$modified_field;
@@ -343,25 +338,40 @@ function display_field_data($field,$valueonly=false,$fixedwidth=452)
 		$extra.="<div class=\"RecordStory\"> <h1>" . $lang["warningexpired"] . "</h1><p>" . $lang["warningexpiredtext"] . "</p><p id=\"WarningOK\"><a href=\"#\" onClick=\"document.getElementById('RecordDownload').style.display='block';document.getElementById('WarningOK').style.display='none';\">" . $lang["warningexpiredok"] . "</a></p></div><style>#RecordDownload {display:none;}</style>";
 		}
 	
-	if (($value!="") && ($value!=",") && ($field["display_field"]==1) && ($access==0 || ($access==1 && !$field["hide_when_restricted"])))
+	# Handle warning messages
+	if (!$valueonly && $field["type"]==13 && trim($value)!="") 
 		{
+		$extra.="<div class=\"RecordStory\"> <h1>" . $lang["fieldtype-warning_message"] . "</h1><p>" . nl2br(htmlspecialchars($value)) . "</p><br /><p id=\"WarningOK\"><a href=\"#\" onClick=\"document.getElementById('RecordDownload').style.display='block';document.getElementById('WarningOK').style.display='none';\">" . $lang["warningexpiredok"] . "</a></p></div><style>#RecordDownload {display:none;}</style>";
+		}
+	
+	# Process the value using a plugin. Might be processing an empty value so need to do before we remove the empty values
+	$plugin="../plugins/value_filter_" . $field["name"] . ".php";
+	
+	if ($field['value_filter']!="")	{eval($field['value_filter']);}
+	else if (file_exists($plugin)) {include $plugin;}
+	else if ($field["type"]==4 && strpos($value,":")!=false){$value=nicedate($value,true,true);} // Show the time as well as date if entered
+	else if ($field["type"]==4 || $field["type"]==6 || $field["type"]==10) {$value=nicedate($value,false,true);}
+		
+	
+	if (($field["type"]==2) || ($field["type"]==3) || ($field["type"]==7) || ($field["type"]==9)) {$value=TidyList($value);}
+	
+	if (($value!="") && ($value!=",") && ($field["display_field"]==1) && ($access==0 || ($access==1 && !$field["hide_when_restricted"])))
+		{			
 		if (!$valueonly)
 			{$title=htmlspecialchars(str_replace("Keywords - ","",$field["title"]));}
 		else {$title="";}
-		//if ($field["type"]==4 || $field["type"]==6) {$value=NiceDate($value,false,true);}
 
 		# Value formatting
 		if (($field["type"]==2) || ($field["type"]==7) || ($field["type"]==9))
 			{$i18n_split_keywords =true;}
 		else 	{$i18n_split_keywords =false;}
 		$value=i18n_get_translated($value,$i18n_split_keywords );
-		if (($field["type"]==2) || ($field["type"]==3) || ($field["type"]==7) || ($field["type"]==9)) {$value=TidyList($value);}
 		
 		// Don't display the comma for radio buttons:
 		if($field['type'] == 12) {
 			$value = str_replace(',', '', $value);
 		}
-		
+				
 		$value_unformatted=$value; # store unformatted value for replacement also
 
 		if ($field["type"]!=8 || ($field["type"]==8 && $value == strip_tags($value))) # Do not convert HTML formatted fields (that are already HTML) to HTML. Added check for extracted fields set to ckeditor that have not yet been edited.
@@ -375,16 +385,7 @@ function display_field_data($field,$valueonly=false,$fixedwidth=452)
 		}
 
 		if (!$valueonly && trim($field["display_template"])!="")
-			{
-			# Process the value using a plugin
-			$plugin="../plugins/value_filter_" . $field["name"] . ".php";
-			if ($field['value_filter']!=""){
-				eval($field['value_filter']);
-			}
-			else if (file_exists($plugin)) {include $plugin;}
-			else if ($field["type"]==4 && strpos($value,":")!=false){$value=NiceDate($value,true,true);} // Show the time as well as date if entered
-			else if ($field["type"]==4 || $field["type"]==6) {$value=NiceDate($value,false,true);}
-			
+			{			
 			# Highlight keywords
 			$value=highlightkeywords($value,$search,$field["partial_index"],$field["name"],$field["keywords_index"]);
 			
@@ -402,20 +403,12 @@ function display_field_data($field,$valueonly=false,$fixedwidth=452)
 			$extra.=$template;
 			}
 		else
-			{
+			{			
 			#There is a value in this field, but we also need to check again for a current-language value after the i18n_get_translated() function was called, to avoid drawing empty fields
 			if ($value!=""){
 				# Draw this field normally.				
 				
-					# value filter plugin should be used regardless of whether a display template is used.
-					$plugin="../plugins/value_filter_" . $field["name"] . ".php";
-					if ($field['value_filter']!=""){
-						eval($field['value_filter']);
-					}
-					else if (file_exists($plugin)) {include $plugin;}
-					else if ($field["type"]==4 && strpos($value,":")!=false){$value=NiceDate($value,true,true);} // Show the time as well as date if entered
-					else if ($field["type"]==4 || $field["type"]==6) {$value=NiceDate($value,false,true);}
-				
+					
 				# Highlight keywords
 				$value=highlightkeywords($value,$search,$field["partial_index"],$field["name"],$field["keywords_index"]);
 				
@@ -623,7 +616,22 @@ elseif ((!(isset($resource['is_transcoding']) && $resource['is_transcoding']!=0)
 	# If configured, and if the resource itself is not an FLV file (in which case the FLV can already be downloaded), then allow the FLV file to be downloaded.
 	if ($flv_preview_downloadable && $resource["file_extension"]!="flv") {$flv_download=true;}
 	}
-elseif ($use_mp3_player && file_exists($mp3realpath) && hook("custommp3player")){}	
+elseif ($videojs && $use_mp3_player && file_exists($mp3realpath) && !hook("replacemp3player"))
+	{?>
+	<div id="previewimagewrapper">
+	<?php 
+	$thumb_path=get_resource_path($ref,true,"pre",false,"jpg");
+	if(file_exists($thumb_path))
+		{$thumb_url=get_resource_path($ref,false,"pre",false,"jpg"); }
+	else
+		{$thumb_url=$baseurl_short . "gfx/" . get_nopreview_icon($resource["resource_type"],$resource["file_extension"],false);}
+	include "mp3_play.php";
+	if(isset($previewcaption))
+		{				
+		display_field_data($previewcaption, true);
+		}
+	?></div><?php
+	}	
 elseif ($resource['file_extension']=="swf" && $display_swf){
 	$swffile=get_resource_path($ref,true,"",false,"swf");
 	if (file_exists($swffile))
@@ -875,7 +883,7 @@ function add_download_column($ref, $size_info, $downloadthissize)
 		if (!hook("resourcerequest"))
 			{
 			?><td class="DownloadButton"><?php
-			if ($request_adds_to_collection && ($k=="" || isset($_COOKIE['user']))) // We can't add to a collection if we are accessing an external share, unless we are a logged in user
+			if ($request_adds_to_collection && ($k=="" || isset($_COOKIE['user'])) && !checkperm('b')) // We can't add to a collection if we are accessing an external share, unless we are a logged in user
 				{
 				echo add_to_collection_link($ref,$search,"alert('" . addslashes($lang["requestaddedtocollection"]) . "');",$size_info["id"]);
 				}
@@ -1156,10 +1164,11 @@ if ($alt_access)
 	}
 # --- end of alternative files listing
 
-if ($use_mp3_player && file_exists($mp3realpath) && $access==0){
-		include "mp3_play.php";
-}
-
+if (!$videojs && $use_mp3_player && file_exists($mp3realpath) && $access==0)
+	{
+	//Legacy custom mp3 player support - need to show in this location
+    include "mp3_play.php";
+	}
 ?>
 
 
@@ -1584,7 +1593,7 @@ if (!$disable_geocoding) {
 
 <?php 
 // include collections listing
-if ($view_resource_collections){ ?>
+if ($view_resource_collections && !checkperm('b')){ ?>
 	<div id="resourcecollections"></div>
 	<script type="text/javascript">
 	jQuery("#resourcecollections").load('<?php echo $baseurl_short?>pages/resource_collection_list.php?ref=<?php echo urlencode($ref)?>&k=<?php echo urlencode($k)?>'

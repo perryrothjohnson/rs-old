@@ -4,15 +4,24 @@ include "../../include/db.php";
 include "../../include/general.php";
 include "../../include/authenticate.php";
 include "../../include/header.php";
+
+$introtext=text("introtext");
 ?>
 <div class="BasicsBox"> 
   <h1><?php echo $lang["myaccount"]?></h1>
-  <p><?php echo text("introtext")?></p>
+  
+  <?php if (trim($introtext)!="") { ?>
+  <p><?php echo $introtext ?></p>
+  <?php } ?>
   
 	<div class="VerticalNav">
 	<ul>
+	
+	<?php if ($allow_password_change && !checkperm("p")) { ?>
         <li><a href="<?php echo $baseurl_short?>pages/user/user_change_password.php" onClick="return CentralSpaceLoad(this,true);"><?php echo $lang["changeyourpassword"]?></a></li>
-        <?php
+        <?php } ?>
+	
+	<?php
       	if ($disable_languages==false && $show_language_chooser)
 			{?>
 			<li><a href="<?php echo $baseurl_short?>pages/change_language.php" onClick="return CentralSpaceLoad(this,true);"><?php echo $lang["languageselection"]?></a></li>
