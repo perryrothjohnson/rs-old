@@ -44,27 +44,27 @@ in the _Archivist_ user group, add the _e0_ permission so these users can view f
 2. click _Manage Product_, then click the _Settings_ tab  
 3. set a new password, and note the username assigned to you  
 4. configure ResourceSpace to send emails using SendGrid; ref: [SMTP Relay](https://sendgrid.com/docs/Integrate/index.html#-SMTP-Relay)  
-```bash
-# ssh into openshift remote repo
-rhc ssh resourcespace
-# edit the config file
-vim ${OPENSHIFT_REPO_DIR}include/config.php
-```
+        ```bash
+        # ssh into openshift remote repo
+        rhc ssh resourcespace
+        # edit the config file
+        vim ${OPENSHIFT_REPO_DIR}include/config.php
+        ```
 5. add the following lines to the end of _config.php_  
-```php
-# Use an external SMTP server for outgoing emails (e.g. Gmail).
-# http://wiki.resourcespace.org/index.php/Email_using_an_external_SMTP_server
-$use_smtp=true;
-# SMTP settings:
-$smtp_secure='ssl';
-$smtp_host='smtp.sendgrid.net';
-$smtp_port=465;
-$smtp_auth=true;
-$smtp_username='[username]';
-$smtp_password='[password]';
-# enable php mailer - this allows HTML format emails
-$use_phpmailer=true;
-```
+        ```php
+        # Use an external SMTP server for outgoing emails (e.g. Gmail).
+        # http://wiki.resourcespace.org/index.php/Email_using_an_external_SMTP_server
+        $use_smtp=true;
+        # SMTP settings:
+        $smtp_secure='ssl';
+        $smtp_host='smtp.sendgrid.net';
+        $smtp_port=465;
+        $smtp_auth=true;
+        $smtp_username='[username]';
+        $smtp_password='[password]';
+        # enable php mailer - this allows HTML format emails
+        $use_phpmailer=true;
+        ```
 
 ## OpenShift
 * Create a free [Red Hat Openshift account](https://openshift.redhat.com)
