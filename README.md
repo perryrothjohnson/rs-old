@@ -3,7 +3,7 @@ ResourceSpace 7.5.7458 on OpenShift
 [http://resourcespacedev-cscdb.rhcloud.com](http://resourcespacedev-cscdb.rhcloud.com)
 
 ## commit procedure
-```
+```bash
 # ssh into openshift remote repo
 rhc ssh resourcespacedev
 # backup config.php and filestore
@@ -33,11 +33,16 @@ git push openshiftdev dev
 * [Knowledge Base](http://resourcespace.org/knowledge-base/)
 * [Google Group](https://groups.google.com/forum/#!forum/resourcespace)
 
+### ResourceSpace permissions
+in the _Archivist_ user group, add the 'e0' permission so these users can view files immediately after upload (without waiting for admins to approve the file)  
+Team Center > System > Manage User Groups > Archivists > Edit > Launch permissions manager > Resource creation/management > e0  Edit access to workflow state 'Active'  
+click the checkbox next to 'e0', scroll to the bottom of the page, and click 'Save'
+
 ## OpenShift
 * Create a free [Red Hat Openshift account](https://openshift.redhat.com)
 * [Getting started with OpenShift](https://openshift.redhat.com/app/getting_started)
 
-## OpenShift file system
+### OpenShift file system
 ```
 .
 |-- .env
