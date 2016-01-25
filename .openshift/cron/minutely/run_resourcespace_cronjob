@@ -1,2 +1,4 @@
 #!/bin/bash
-${OPENSHIFT_REPO_DIR}batch/cron.php
+# run scheduled tasks included with ResourceSpace by default
+php ${OPENSHIFT_REPO_DIR}batch/cron.php
+date >> ${OPENSHIFT_PHP_LOG_DIR}run_resourcespace_cron.log

@@ -1,3 +1,4 @@
 #!/bin/bash
 cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}
 cp -R ${OPENSHIFT_REPO_DIR}filestore ${OPENSHIFT_DATA_DIR}
+date >> ${OPENSHIFT_PHP_LOG_DIR}backup_config_filestore.log
