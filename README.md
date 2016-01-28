@@ -5,7 +5,7 @@ ResourceSpace 7.5.7458 on OpenShift
 ## commit procedure
 ```bash
 # ssh into openshift remote repo
-rhc ssh resourcespacedev
+rhc ssh resourcespace
 # backup config.php and filestore
 cp ${OPENSHIFT_REPO_DIR}include/config.php ${OPENSHIFT_DATA_DIR}
 cp -R ${OPENSHIFT_REPO_DIR}filestore ${OPENSHIFT_DATA_DIR}
@@ -118,3 +118,40 @@ refs: [Getting started with CRON jobs](https://blog.openshift.com/getting-starte
 |       `-- ... other git directories
 `-- ...cartridge directories
 ```
+
+### configure alias URL
+ref: [https://developers.openshift.com/en/managing-domains-ssl.html#_generating_a_csr_certificate_signing_request](https://developers.openshift.com/en/managing-domains-ssl.html#_generating_a_csr_certificate_signing_request)
+
+on your Mac workstation...  
+
+```bash
+# generate a private key
+$ cd ~/Desktop
+$ openssl genrsa -des3 -out rs.key 2048
+# set a password for the *.key file
+```
+...you'll now find a *.key file on your Desktop  
+```bash
+# generate a CSR
+$ openssl req -new -key rs.key -out rs.csr
+# enter the password for the *.key file
+# fill in the following fields...
+# Country Name: US
+# State: California
+# Locality Name: Los Angeles
+# Organization name: California Science Center
+# Organizational Unit: Exhibit Development
+# Common Name: imageresearch.californiasciencecenter.org
+# Email: [email]@cscmail.org
+# A challenge password: .
+# An optional company name: .
+```
+...you'll now find a *.csr file on your Desktop  
+email the *.csr file to Thomas Chung in IT, and ask for an alias URL (http://imageresesarch.californiasciencecenter.org)  
+
+on the Openshift web console, create a new alias for resourcespace...  
+* Domain name: imageresearch.californiasciencecenter.org
+* SSL certificate: OtherServer/2_imageresearch.californiasciencecenter.org.crt
+* SSL certificate chain: [blank]
+* Certificate private key: rs.key
+* Private key pass phrase: [password for rs.key]

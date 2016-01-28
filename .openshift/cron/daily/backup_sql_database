@@ -1,0 +1,8 @@
+#!/bin/bash
+# backup the MySQL database every day to $OPENSHIFT_DATA_DIR
+today=`date '+%Y_%m_%d__%H_%M_%S'`
+backup_filename="resourcespace__$today.sql"
+mysqldump --user="$OPENSHIFT_MYSQL_DB_USERNAME" --password="$OPENSHIFT_MYSQL_DB_PASSWORD" --host="$OPENSHIFT_MYSQL_DB_HOST" --port="$OPENSHIFT_MYSQL_DB_PORT" --complete-insert resourcespace > ${OPENSHIFT_DATA_DIR}backup_filename
+# (ref: http://www.3riverdev.com/how-to-backup-an-openshift-mysql-database-with-a-shell-script/)
+date >> ${OPENSHIFT_PHP_LOG_DIR}backup_sql_database.log
+# write the date string to the file 'backup_sql_database.log'
